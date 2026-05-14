@@ -1,0 +1,1051 @@
+-- ============================================================
+--  ENTREGABLE A — MÓDULO C: CUENTAS POR PAGAR
+--  Proyecto Final Integrador — Sistema de Gestión Empresarial
+--  Bases de Datos II (ICC401) · Universidad del Azuay
+--  Período: Febrero–Junio 2026
+-- ============================================================
+
+-- ============================================================
+-- 0. SETUP DEL SCHEMA
+-- ============================================================
+DROP SCHEMA IF EXISTS modulo_c;
+CREATE SCHEMA modulo_c
+    DEFAULT CHARACTER SET utf8mb4
+    DEFAULT COLLATE utf8mb4_unicode_ci;
+
+USE modulo_c;
+
+-- ============================================================
+-- 1. TABLAS PROPIAS DEL MÓDULO C
+-- ============================================================
+
+-- ------------------------------------------------------------
+-- 1.1 proveedores  (tabla raíz del módulo)
+-- ------------------------------------------------------------
+CREATE TABLE proveedores (
+    id_proveedor        INT UNSIGNED    NOT NULL AUTO_INCREMENT,
+    tipo_proveedor      ENUM('persona_natural','persona_juridica') NOT NULL,
+    identificacion      VARCHAR(20)     NOT NULL,           -- RUC (13 dígitos) o cédula (10 dígitos)
+    razon_social        VARCHAR(200)    NOT NULL,
+    email               VARCHAR(150)    NULL,
+    telefono            VARCHAR(20)     NULL,
+    direccion           VARCHAR(300)    NULL,
+    dias_credito        INT             NOT NULL DEFAULT 30, -- plazo de pago acordado con el proveedor
+    cuenta_bancaria     VARCHAR(50)     NULL,
+    banco               VARCHAR(100)    NULL,
+    calificacion        ENUM('A','B','C') NULL,
+    activo              TINYINT(1)      NOT NULL DEFAULT 1,
+    fecha_creacion      DATETIME        NOT NULL DEFAULT NOW(),
+    usuario_creacion    VARCHAR(100)    NULL,
+    fecha_eliminacion   DATETIME        NULL,
+    eliminado_por       VARCHAR(100)    NULL,
+
+    CONSTRAINT pk_proveedores           PRIMARY KEY (id_proveedor),
+    CONSTRAINT uq_proveedores_ruc       UNIQUE      (identificacion),
+    CONSTRAINT chk_prov_dias_credito    CHECK (dias_credito >= 0),
+    CONSTRAINT chk_prov_tipo            CHECK (tipo_proveedor IN ('persona_natural','persona_juridica'))
+);
+
+CREATE INDEX idx_prov_activo       ON proveedores (activo);
+CREATE INDEX idx_prov_tipo         ON proveedores (tipo_proveedor);
+CREATE INDEX idx_prov_calificacion ON proveedores (calificacion);
+
+-- ------------------------------------------------------------
+-- 1.2 prov_persona_natural  (subtipo de proveedores)
+-- ------------------------------------------------------------
+CREATE TABLE prov_persona_natural (
+    id_proveedor    INT UNSIGNED NOT NULL,
+    cedula          VARCHAR(10)  NOT NULL,
+
+    CONSTRAINT pk_ppn            PRIMARY KEY (id_proveedor),
+    CONSTRAINT uq_ppn_cedula     UNIQUE      (cedula),
+    CONSTRAINT fk_ppn_proveedor  FOREIGN KEY (id_proveedor)
+        REFERENCES proveedores (id_proveedor)
+        ON DELETE RESTRICT ON UPDATE CASCADE
+);
+
+-- ------------------------------------------------------------
+-- 1.3 prov_persona_juridica  (subtipo de proveedores)
+-- ------------------------------------------------------------
+CREATE TABLE prov_persona_juridica (
+    id_proveedor        INT UNSIGNED    NOT NULL,
+    razon_social        VARCHAR(200)    NOT NULL,
+    nombre_comercial    VARCHAR(200)    NULL,
+
+    CONSTRAINT pk_ppj            PRIMARY KEY (id_proveedor),
+    CONSTRAINT fk_ppj_proveedor  FOREIGN KEY (id_proveedor)
+        REFERENCES proveedores (id_proveedor)
+        ON DELETE RESTRICT ON UPDATE CASCADE
+);
+
+-- ------------------------------------------------------------
+-- 1.4 ordenes_compra
+-- ------------------------------------------------------------
+CREATE TABLE ordenes_compra (
+    id_oc                   INT UNSIGNED    NOT NULL AUTO_INCREMENT,
+    numero_oc               VARCHAR(20)     NOT NULL,
+    id_proveedor            INT UNSIGNED    NOT NULL,
+    -- FK hacia Módulo B (inventarios): modulo_b.solicitudes_compra.id_solicitud
+    -- Sin FK física por ADR-004; referencia lógica entre schemas
+    ref_mod_b_id_solicitud  INT UNSIGNED    NULL,
+    fecha_emision           DATE            NOT NULL,
+    fecha_entrega_esperada  DATE            NULL,
+    estado                  ENUM('borrador','enviada','recibida_parcial','recibida_completa','anulada')
+                                            NOT NULL DEFAULT 'borrador',
+    total_estimado          DECIMAL(12,2)   NULL,
+    observaciones           TEXT            NULL,
+    activo                  TINYINT(1)      NOT NULL DEFAULT 1,
+    fecha_creacion          DATETIME        NOT NULL DEFAULT NOW(),
+    usuario_creacion        VARCHAR(100)    NULL,
+    fecha_modificacion      DATETIME        NULL,
+    usuario_modificacion    VARCHAR(100)    NULL,
+
+    CONSTRAINT pk_ordenes_compra        PRIMARY KEY (id_oc),
+    CONSTRAINT uq_oc_numero             UNIQUE      (numero_oc),
+    CONSTRAINT fk_oc_proveedor          FOREIGN KEY (id_proveedor)
+        REFERENCES proveedores (id_proveedor)
+        ON DELETE RESTRICT ON UPDATE CASCADE,
+    CONSTRAINT chk_oc_total             CHECK (total_estimado IS NULL OR total_estimado >= 0),
+    CONSTRAINT chk_oc_fechas            CHECK (fecha_entrega_esperada IS NULL OR fecha_entrega_esperada >= fecha_emision)
+);
+
+CREATE INDEX idx_oc_fecha_emision   ON ordenes_compra (fecha_emision);
+CREATE INDEX idx_oc_proveedor       ON ordenes_compra (id_proveedor);
+CREATE INDEX idx_oc_estado          ON ordenes_compra (estado);
+CREATE INDEX idx_oc_solicitud_b     ON ordenes_compra (ref_mod_b_id_solicitud);  -- JOIN cross-module con modulo_b
+
+-- ------------------------------------------------------------
+-- 1.5 detalle_orden_compra
+-- ------------------------------------------------------------
+CREATE TABLE detalle_orden_compra (
+    id_detalle_oc               INT UNSIGNED    NOT NULL AUTO_INCREMENT,
+    id_oc                       INT UNSIGNED    NOT NULL,
+    -- FK hacia Módulo B (inventarios): modulo_b.productos.id_producto
+    -- Sin FK física por ADR-004; tipo INT UNSIGNED alineado con modulo_b.productos.id_producto
+    ref_mod_b_id_producto       INT UNSIGNED    NOT NULL,
+    descripcion_al_momento      VARCHAR(200)    NOT NULL,   -- snapshot histórico del nombre del producto
+    cantidad_solicitada         INT             NOT NULL,
+    precio_unitario_pactado     DECIMAL(12,2)   NOT NULL,
+    subtotal                    DECIMAL(12,2)   NOT NULL,
+    activo                      TINYINT(1)      NOT NULL DEFAULT 1,
+    fecha_creacion              DATETIME        NOT NULL DEFAULT NOW(),
+    usuario_creacion            VARCHAR(100)    NULL,
+
+    CONSTRAINT pk_detalle_oc            PRIMARY KEY (id_detalle_oc),
+    CONSTRAINT fk_detoc_oc              FOREIGN KEY (id_oc)
+        REFERENCES ordenes_compra (id_oc)
+        ON DELETE RESTRICT ON UPDATE CASCADE,
+    CONSTRAINT chk_detoc_cantidad       CHECK (cantidad_solicitada > 0),
+    CONSTRAINT chk_detoc_precio         CHECK (precio_unitario_pactado >= 0),
+    CONSTRAINT chk_detoc_subtotal       CHECK (subtotal >= 0)
+);
+
+CREATE INDEX idx_detoc_oc           ON detalle_orden_compra (id_oc);
+CREATE INDEX idx_detoc_producto_b   ON detalle_orden_compra (ref_mod_b_id_producto);  -- JOIN cross-module con modulo_b.productos
+
+-- ------------------------------------------------------------
+-- 1.6 recepciones
+-- ------------------------------------------------------------
+CREATE TABLE recepciones (
+    id_recepcion            INT UNSIGNED    NOT NULL AUTO_INCREMENT,
+    id_oc                   INT UNSIGNED    NOT NULL,
+    fecha_recepcion         DATE            NOT NULL,
+    tipo_recepcion          ENUM('completa','parcial') NOT NULL,
+    -- notificado_inventario = 0 permite listar recepciones pendientes de reenvío a MOD-B si el sistema falla
+    notificado_inventario   TINYINT(1)      NOT NULL DEFAULT 0,
+    observaciones           TEXT            NULL,
+    activo                  TINYINT(1)      NOT NULL DEFAULT 1,
+    fecha_creacion          DATETIME        NOT NULL DEFAULT NOW(),
+    usuario_creacion        VARCHAR(100)    NULL,
+    fecha_modificacion      DATETIME        NULL,
+    usuario_modificacion    VARCHAR(100)    NULL,
+
+    CONSTRAINT pk_recepciones       PRIMARY KEY (id_recepcion),
+    CONSTRAINT fk_rec_oc            FOREIGN KEY (id_oc)
+        REFERENCES ordenes_compra (id_oc)
+        ON DELETE RESTRICT ON UPDATE CASCADE
+);
+
+CREATE INDEX idx_rec_oc             ON recepciones (id_oc);
+CREATE INDEX idx_rec_notificado     ON recepciones (notificado_inventario);  -- proceso de reintento IF-03 → MOD-B
+CREATE INDEX idx_rec_fecha          ON recepciones (fecha_recepcion);
+
+-- ------------------------------------------------------------
+-- 1.7 detalle_recepcion
+-- ------------------------------------------------------------
+CREATE TABLE detalle_recepcion (
+    id_detalle_rec          INT UNSIGNED    NOT NULL AUTO_INCREMENT,
+    id_recepcion            INT UNSIGNED    NOT NULL,
+    id_detalle_oc           INT UNSIGNED    NOT NULL,
+    -- FK hacia Módulo B (inventarios): modulo_b.productos.id_producto
+    -- Sin FK física por ADR-004; tipo INT UNSIGNED alineado con modulo_b.productos.id_producto
+    ref_mod_b_id_producto   INT UNSIGNED    NOT NULL,
+    cantidad_recibida       INT             NOT NULL,
+    activo                  TINYINT(1)      NOT NULL DEFAULT 1,
+    fecha_creacion          DATETIME        NOT NULL DEFAULT NOW(),
+    usuario_creacion        VARCHAR(100)    NULL,
+
+    CONSTRAINT pk_detalle_rec       PRIMARY KEY (id_detalle_rec),
+    CONSTRAINT fk_detrec_recepcion  FOREIGN KEY (id_recepcion)
+        REFERENCES recepciones (id_recepcion)
+        ON DELETE RESTRICT ON UPDATE CASCADE,
+    CONSTRAINT fk_detrec_detoc      FOREIGN KEY (id_detalle_oc)
+        REFERENCES detalle_orden_compra (id_detalle_oc)
+        ON DELETE RESTRICT ON UPDATE CASCADE,
+    CONSTRAINT chk_detrec_cantidad  CHECK (cantidad_recibida > 0)
+);
+
+CREATE INDEX idx_detrec_recepcion   ON detalle_recepcion (id_recepcion);
+CREATE INDEX idx_detrec_detoc       ON detalle_recepcion (id_detalle_oc);
+CREATE INDEX idx_detrec_producto_b  ON detalle_recepcion (ref_mod_b_id_producto);  -- payload IF-03 → MOD-B
+
+-- ------------------------------------------------------------
+-- 1.8 facturas_proveedor
+-- ------------------------------------------------------------
+CREATE TABLE facturas_proveedor (
+    id_factura_prov                 INT UNSIGNED    NOT NULL AUTO_INCREMENT,
+    -- Formato SRI: 001-001-000000000 (establecimiento-punto_emisión-secuencial)
+    numero_factura_proveedor        VARCHAR(20)     NOT NULL,
+    -- Solo bloque 001-001 (establecimiento y punto de emisión)
+    numero_serie                    VARCHAR(7)      NOT NULL,
+    id_proveedor                    INT UNSIGNED    NOT NULL,
+    id_oc                           INT UNSIGNED    NOT NULL,
+    id_recepcion                    INT UNSIGNED    NOT NULL,
+    fecha_emision                   DATE            NOT NULL,
+    base_imponible                  DECIMAL(12,2)   NOT NULL,
+    monto_iva                       DECIMAL(12,2)   NOT NULL,
+    total                           DECIMAL(12,2)   NOT NULL,
+    -- Código SRI obligatorio: 01=compra bienes, 02=servicios, 03=liquidación compra
+    codigo_sustento                 VARCHAR(2)      NOT NULL,
+    -- Código SRI para retención según tipo de bien o servicio
+    tipo_bien_servicio              VARCHAR(10)     NULL,
+    -- FK hacia Módulo D (impuestos/retenciones): modulo_d.tarifas_retencion.id_tarifa
+    -- Sin FK física por ADR-004; tipo INT UNSIGNED alineado con modulo_d.tarifas_retencion.id_tarifa
+    ref_mod_d_tarifa_id             INT UNSIGNED    NULL,
+    -- Estado inicial refleja flujo asíncrono con MOD-D (ADR-003)
+    estado                          ENUM('pendiente_retencion','retencion_generada','pagada_parcial','pagada','anulada')
+                                                    NOT NULL DEFAULT 'pendiente_retencion',
+    -- FK lógica hacia Módulo D: documento de retención generado
+    ref_mod_d_doc_id                INT UNSIGNED    NULL,
+    -- Datos de autorización SRI devueltos por MOD-D (IF-05 respuesta asíncrona)
+    num_autorizacion_retencion      VARCHAR(49)     NULL,
+    xml_retencion                   LONGTEXT        NULL,
+    activo                          TINYINT(1)      NOT NULL DEFAULT 1,
+    fecha_creacion                  DATETIME        NOT NULL DEFAULT NOW(),
+    usuario_creacion                VARCHAR(100)    NULL,
+    fecha_modificacion              DATETIME        NULL,
+    usuario_modificacion            VARCHAR(100)    NULL,
+
+    CONSTRAINT pk_facturas_prov         PRIMARY KEY (id_factura_prov),
+    CONSTRAINT uq_fp_numero             UNIQUE      (numero_factura_proveedor),
+    CONSTRAINT fk_fp_proveedor          FOREIGN KEY (id_proveedor)
+        REFERENCES proveedores (id_proveedor)
+        ON DELETE RESTRICT ON UPDATE CASCADE,
+    CONSTRAINT fk_fp_oc                 FOREIGN KEY (id_oc)
+        REFERENCES ordenes_compra (id_oc)
+        ON DELETE RESTRICT ON UPDATE CASCADE,
+    CONSTRAINT fk_fp_recepcion          FOREIGN KEY (id_recepcion)
+        REFERENCES recepciones (id_recepcion)
+        ON DELETE RESTRICT ON UPDATE CASCADE,
+    CONSTRAINT chk_fp_base              CHECK (base_imponible >= 0),
+    CONSTRAINT chk_fp_iva               CHECK (monto_iva >= 0),
+    CONSTRAINT chk_fp_total             CHECK (total >= 0)
+);
+
+CREATE INDEX idx_fp_oc                  ON facturas_proveedor (id_oc);
+CREATE INDEX idx_fp_proveedor_estado    ON facturas_proveedor (id_proveedor, estado);   -- procesamiento asíncrono MOD-D
+CREATE INDEX idx_fp_sustento            ON facturas_proveedor (codigo_sustento);        -- reportes SRI y payload IF-05 → MOD-D
+CREATE INDEX idx_fp_fecha               ON facturas_proveedor (fecha_emision);
+
+-- ------------------------------------------------------------
+-- 1.9 cuentas_por_pagar
+-- ------------------------------------------------------------
+CREATE TABLE cuentas_por_pagar (
+    id_cxp              INT UNSIGNED    NOT NULL AUTO_INCREMENT,
+    -- FK directa a proveedores para consultas sin navegar por factura
+    id_proveedor        INT UNSIGNED    NOT NULL,
+    id_factura_prov     INT UNSIGNED    NOT NULL,
+    monto_original      DECIMAL(12,2)   NOT NULL,
+    -- Desnormalizado; actualizado por trigger trg_pago_after_insert con cada pago
+    saldo_pendiente     DECIMAL(12,2)   NOT NULL,
+    -- fecha_emision + dias_credito del proveedor; calculado por fn_calcular_fecha_vencimiento
+    fecha_vencimiento   DATE            NOT NULL,
+    -- NULL = sin programar; distingue deudas agendadas de no agendadas (RF de programación de pagos)
+    fecha_programada    DATE            NULL,
+    estado              ENUM('pendiente','pagada_parcial','pagada','vencida')
+                                        NOT NULL DEFAULT 'pendiente',
+    activo              TINYINT(1)      NOT NULL DEFAULT 1,
+    fecha_creacion      DATETIME        NOT NULL DEFAULT NOW(),
+    usuario_creacion    VARCHAR(100)    NULL,
+    fecha_modificacion  DATETIME        NULL,
+    usuario_modificacion VARCHAR(100)   NULL,
+
+    CONSTRAINT pk_cxp               PRIMARY KEY (id_cxp),
+    CONSTRAINT fk_cxp_proveedor     FOREIGN KEY (id_proveedor)
+        REFERENCES proveedores (id_proveedor)
+        ON DELETE RESTRICT ON UPDATE CASCADE,
+    CONSTRAINT fk_cxp_factura       FOREIGN KEY (id_factura_prov)
+        REFERENCES facturas_proveedor (id_factura_prov)
+        ON DELETE RESTRICT ON UPDATE CASCADE,
+    CONSTRAINT chk_cxp_monto        CHECK (monto_original > 0),
+    CONSTRAINT chk_cxp_saldo        CHECK (saldo_pendiente >= 0),
+    CONSTRAINT chk_cxp_programada   CHECK (fecha_programada IS NULL OR fecha_programada >= fecha_vencimiento - INTERVAL 30 DAY)
+);
+
+CREATE INDEX idx_cxp_factura            ON cuentas_por_pagar (id_factura_prov);
+CREATE INDEX idx_cxp_proveedor_estado   ON cuentas_por_pagar (id_proveedor, estado);   -- vw_cuentas_pendientes
+CREATE INDEX idx_cxp_vencimiento        ON cuentas_por_pagar (fecha_vencimiento);      -- alertas de pagos por vencer
+CREATE INDEX idx_cxp_programada         ON cuentas_por_pagar (fecha_programada);       -- filtro de pagos agendados
+
+-- ------------------------------------------------------------
+-- 1.10 pagos_proveedor
+-- ------------------------------------------------------------
+CREATE TABLE pagos_proveedor (
+    id_pago         INT UNSIGNED    NOT NULL AUTO_INCREMENT,
+    id_cxp          INT UNSIGNED    NOT NULL,
+    id_proveedor    INT UNSIGNED    NOT NULL,
+    fecha_pago      DATE            NOT NULL,
+    monto           DECIMAL(12,2)   NOT NULL,
+    forma_pago      ENUM('transferencia','cheque','efectivo') NOT NULL,
+    referencia      VARCHAR(100)    NULL,
+    activo          TINYINT(1)      NOT NULL DEFAULT 1,
+    fecha_creacion  DATETIME        NOT NULL DEFAULT NOW(),
+    usuario_creacion VARCHAR(100)   NULL,
+
+    CONSTRAINT pk_pagos_prov        PRIMARY KEY (id_pago),
+    CONSTRAINT fk_pago_cxp          FOREIGN KEY (id_cxp)
+        REFERENCES cuentas_por_pagar (id_cxp)
+        ON DELETE RESTRICT ON UPDATE CASCADE,
+    CONSTRAINT fk_pago_proveedor    FOREIGN KEY (id_proveedor)
+        REFERENCES proveedores (id_proveedor)
+        ON DELETE RESTRICT ON UPDATE CASCADE,
+    CONSTRAINT chk_pago_monto       CHECK (monto > 0)
+);
+
+CREATE INDEX idx_pagos_cxp          ON pagos_proveedor (id_cxp);         -- JOIN en estado de cuenta y trigger
+CREATE INDEX idx_pagos_proveedor    ON pagos_proveedor (id_proveedor);
+CREATE INDEX idx_pagos_fecha        ON pagos_proveedor (fecha_pago);
+
+-- ============================================================
+-- 2. FUNCIONES
+-- ============================================================
+
+DELIMITER $$
+
+-- ------------------------------------------------------------
+-- fn_calcular_fecha_vencimiento
+-- Suma dias_credito del proveedor a la fecha de emisión
+-- ------------------------------------------------------------
+CREATE FUNCTION fn_calcular_fecha_vencimiento(
+    p_fecha_emision  DATE,
+    p_id_proveedor   INT UNSIGNED
+)
+RETURNS DATE
+DETERMINISTIC
+READS SQL DATA
+BEGIN
+    DECLARE v_dias INT DEFAULT 30;
+    SELECT dias_credito INTO v_dias
+    FROM   proveedores
+    WHERE  id_proveedor = p_id_proveedor;
+    RETURN DATE_ADD(p_fecha_emision, INTERVAL v_dias DAY);
+END$$
+
+-- ------------------------------------------------------------
+-- fn_saldo_proveedor
+-- Suma todos los saldo_pendiente de CxP activas del proveedor
+-- ------------------------------------------------------------
+CREATE FUNCTION fn_saldo_proveedor(
+    p_id_proveedor INT UNSIGNED
+)
+RETURNS DECIMAL(12,2)
+DETERMINISTIC
+READS SQL DATA
+BEGIN
+    DECLARE v_saldo DECIMAL(12,2) DEFAULT 0.00;
+    SELECT COALESCE(SUM(saldo_pendiente), 0) INTO v_saldo
+    FROM   cuentas_por_pagar
+    WHERE  id_proveedor = p_id_proveedor
+      AND  activo = 1
+      AND  estado <> 'pagada';
+    RETURN v_saldo;
+END$$
+
+-- ------------------------------------------------------------
+-- fn_dias_vencimiento
+-- Días restantes hasta vencimiento (negativo si ya venció)
+-- ------------------------------------------------------------
+CREATE FUNCTION fn_dias_vencimiento(
+    p_fecha_vencimiento DATE
+)
+RETURNS INT
+DETERMINISTIC
+NO SQL
+BEGIN
+    RETURN DATEDIFF(p_fecha_vencimiento, CURDATE());
+END$$
+
+-- ------------------------------------------------------------
+-- fn_porcentaje_recepcion_oc
+-- Calcula % de cantidad total solicitada efectivamente recibida
+-- ------------------------------------------------------------
+CREATE FUNCTION fn_porcentaje_recepcion_oc(
+    p_id_oc INT UNSIGNED
+)
+RETURNS DECIMAL(5,2)
+DETERMINISTIC
+READS SQL DATA
+BEGIN
+    DECLARE v_solicitado DECIMAL(12,2) DEFAULT 0;
+    DECLARE v_recibido   DECIMAL(12,2) DEFAULT 0;
+
+    SELECT COALESCE(SUM(d.cantidad_solicitada), 0) INTO v_solicitado
+    FROM   detalle_orden_compra d
+    WHERE  d.id_oc   = p_id_oc
+      AND  d.activo  = 1;
+
+    SELECT COALESCE(SUM(dr.cantidad_recibida), 0) INTO v_recibido
+    FROM   detalle_recepcion dr
+    JOIN   recepciones r ON r.id_recepcion = dr.id_recepcion
+    WHERE  r.id_oc  = p_id_oc
+      AND  r.activo = 1
+      AND  dr.activo = 1;
+
+    IF v_solicitado = 0 THEN
+        RETURN 0.00;
+    END IF;
+    RETURN ROUND((v_recibido / v_solicitado) * 100, 2);
+END$$
+
+DELIMITER ;
+
+-- ============================================================
+-- 3. TRIGGERS
+-- ============================================================
+
+DELIMITER $$
+
+-- ------------------------------------------------------------
+-- trg_pago_after_insert
+-- Actualiza saldo_pendiente y estado en cuentas_por_pagar
+-- ------------------------------------------------------------
+CREATE TRIGGER trg_pago_after_insert
+AFTER INSERT ON pagos_proveedor
+FOR EACH ROW
+BEGIN
+    DECLARE v_saldo_nuevo DECIMAL(12,2);
+
+    UPDATE cuentas_por_pagar
+    SET    saldo_pendiente    = saldo_pendiente - NEW.monto,
+           fecha_modificacion = NOW(),
+           usuario_modificacion = NEW.usuario_creacion
+    WHERE  id_cxp = NEW.id_cxp;
+
+    SELECT saldo_pendiente INTO v_saldo_nuevo
+    FROM   cuentas_por_pagar
+    WHERE  id_cxp = NEW.id_cxp;
+
+    UPDATE cuentas_por_pagar
+    SET    estado = CASE
+                     WHEN v_saldo_nuevo <= 0 THEN 'pagada'
+                     ELSE 'pagada_parcial'
+                   END
+    WHERE  id_cxp = NEW.id_cxp;
+END$$
+
+-- ------------------------------------------------------------
+-- trg_factura_after_insert
+-- Genera automáticamente la CxP al registrar una factura
+-- ------------------------------------------------------------
+CREATE TRIGGER trg_factura_after_insert
+AFTER INSERT ON facturas_proveedor
+FOR EACH ROW
+BEGIN
+    DECLARE v_vencimiento DATE;
+    SET v_vencimiento = fn_calcular_fecha_vencimiento(NEW.fecha_emision, NEW.id_proveedor);
+
+    INSERT INTO cuentas_por_pagar (
+        id_proveedor, id_factura_prov,
+        monto_original, saldo_pendiente,
+        fecha_vencimiento, fecha_programada,
+        estado, activo, fecha_creacion, usuario_creacion
+    ) VALUES (
+        NEW.id_proveedor, NEW.id_factura_prov,
+        NEW.total, NEW.total,
+        v_vencimiento, NULL,
+        'pendiente', 1, NOW(), NEW.usuario_creacion
+    );
+END$$
+
+-- ------------------------------------------------------------
+-- trg_recepcion_after_insert
+-- Actualiza estado de ordenes_compra tras cada recepción
+-- ------------------------------------------------------------
+CREATE TRIGGER trg_recepcion_after_insert
+AFTER INSERT ON recepciones
+FOR EACH ROW
+BEGIN
+    DECLARE v_pct DECIMAL(5,2);
+    SET v_pct = fn_porcentaje_recepcion_oc(NEW.id_oc);
+
+    UPDATE ordenes_compra
+    SET    estado = CASE
+                     WHEN v_pct >= 100 THEN 'recibida_completa'
+                     ELSE 'recibida_parcial'
+                   END,
+           fecha_modificacion = NOW()
+    WHERE  id_oc = NEW.id_oc;
+    -- notificado_inventario queda en 0 hasta que sp_registrar_recepcion
+    -- confirme respuesta positiva de MOD-B (IF-03)
+END$$
+
+-- ------------------------------------------------------------
+-- trg_orden_eliminar_cascade_logico
+-- Borrado lógico en cascada: ordenes_compra → detalle_orden_compra
+-- ------------------------------------------------------------
+CREATE TRIGGER trg_orden_eliminar_cascade_logico
+BEFORE UPDATE ON ordenes_compra
+FOR EACH ROW
+BEGIN
+    IF NEW.activo = 0 AND OLD.activo = 1 THEN
+        UPDATE detalle_orden_compra
+        SET    activo = 0
+        WHERE  id_oc = OLD.id_oc;
+    END IF;
+END$$
+
+DELIMITER ;
+
+-- ============================================================
+-- 4. VISTAS
+-- ============================================================
+
+-- ------------------------------------------------------------
+-- vw_cuentas_pendientes
+-- Base del reporte de obligaciones (RF12)
+-- ------------------------------------------------------------
+CREATE OR REPLACE VIEW vw_cuentas_pendientes AS
+SELECT
+    c.id_cxp,
+    p.razon_social,
+    p.identificacion,
+    f.numero_factura_proveedor,
+    f.numero_serie,
+    c.monto_original,
+    c.saldo_pendiente,
+    c.fecha_vencimiento,
+    c.fecha_programada,
+    c.estado,
+    fn_dias_vencimiento(c.fecha_vencimiento) AS dias_para_vencer
+FROM  cuentas_por_pagar c
+JOIN  proveedores        p ON p.id_proveedor    = c.id_proveedor
+JOIN  facturas_proveedor f ON f.id_factura_prov = c.id_factura_prov
+WHERE c.activo = 1
+  AND c.estado <> 'pagada';
+
+-- ------------------------------------------------------------
+-- vw_pagos_por_vencer
+-- Alimenta alerta de pagos próximos a vencer (RF10/CU-10)
+-- Horizonte configurable; default 7 días
+-- ------------------------------------------------------------
+CREATE OR REPLACE VIEW vw_pagos_por_vencer AS
+SELECT
+    c.id_cxp,
+    p.razon_social,
+    p.identificacion,
+    f.numero_factura_proveedor,
+    c.saldo_pendiente,
+    c.fecha_vencimiento,
+    c.fecha_programada,
+    fn_dias_vencimiento(c.fecha_vencimiento) AS dias_para_vencer
+FROM  cuentas_por_pagar c
+JOIN  proveedores        p ON p.id_proveedor    = c.id_proveedor
+JOIN  facturas_proveedor f ON f.id_factura_prov = c.id_factura_prov
+WHERE c.activo = 1
+  AND c.estado IN ('pendiente','pagada_parcial')
+  AND c.saldo_pendiente > 0
+  AND fn_dias_vencimiento(c.fecha_vencimiento) BETWEEN 0 AND 7
+ORDER BY dias_para_vencer ASC;
+
+-- ------------------------------------------------------------
+-- vw_estado_cuenta_proveedor
+-- Historial completo por proveedor (RF09/CU-09)
+-- ------------------------------------------------------------
+CREATE OR REPLACE VIEW vw_estado_cuenta_proveedor AS
+SELECT
+    p.id_proveedor,
+    p.razon_social,
+    p.identificacion,
+    f.numero_factura_proveedor,
+    f.fecha_emision,
+    f.total          AS monto_factura,
+    c.fecha_vencimiento,
+    c.fecha_programada,
+    c.monto_original,
+    c.saldo_pendiente,
+    c.estado         AS estado_cxp,
+    pp.id_pago,
+    pp.fecha_pago,
+    pp.monto         AS monto_pago,
+    pp.forma_pago
+FROM  proveedores        p
+JOIN  facturas_proveedor f  ON f.id_proveedor    = p.id_proveedor
+JOIN  cuentas_por_pagar  c  ON c.id_factura_prov = f.id_factura_prov
+LEFT JOIN pagos_proveedor pp ON pp.id_cxp        = c.id_cxp AND pp.activo = 1
+WHERE p.activo = 1
+  AND f.activo = 1
+  AND c.activo = 1;
+
+-- ------------------------------------------------------------
+-- vw_ordenes_pendientes_recepcion
+-- OC con recepción incompleta (RF11/CU-11)
+-- ------------------------------------------------------------
+CREATE OR REPLACE VIEW vw_ordenes_pendientes_recepcion AS
+SELECT
+    o.id_oc,
+    o.numero_oc,
+    p.razon_social,
+    o.fecha_emision,
+    o.fecha_entrega_esperada,
+    o.estado,
+    fn_porcentaje_recepcion_oc(o.id_oc)         AS porcentaje_recibido,
+    DATEDIFF(CURDATE(), o.fecha_emision)         AS dias_desde_emision
+FROM  ordenes_compra o
+JOIN  proveedores    p ON p.id_proveedor = o.id_proveedor
+WHERE o.activo = 1
+  AND o.estado IN ('enviada','recibida_parcial');
+
+-- ------------------------------------------------------------
+-- vw_recepciones_pendientes_notificar
+-- Mecanismo de recuperación ante fallos de IF-03 → MOD-B
+-- ------------------------------------------------------------
+CREATE OR REPLACE VIEW vw_recepciones_pendientes_notificar AS
+SELECT
+    r.id_recepcion,
+    r.id_oc,
+    r.fecha_recepcion,
+    r.tipo_recepcion,
+    dr.id_detalle_rec,
+    dr.ref_mod_b_id_producto,
+    dr.cantidad_recibida
+FROM  recepciones        r
+JOIN  detalle_recepcion  dr ON dr.id_recepcion = r.id_recepcion
+WHERE r.notificado_inventario = 0
+  AND r.activo  = 1
+  AND dr.activo = 1;
+
+-- ------------------------------------------------------------
+-- vw_integracion_oc_stock_bajo  (Entregable C — vista cross-module)
+-- Detecta OC recientes que no repusieron suficientemente el stock
+-- JOIN cross-schema modulo_c ↔ modulo_b
+-- FK hacia Módulo B (inventarios): modulo_b.productos.id_producto,
+--                                  modulo_b.productos.stock_actual,
+--                                  modulo_b.productos.stock_minimo
+-- ------------------------------------------------------------
+CREATE OR REPLACE VIEW vw_integracion_oc_stock_bajo AS
+SELECT
+    o.numero_oc,
+    o.fecha_emision,
+    p.razon_social          AS proveedor,
+    d.ref_mod_b_id_producto AS id_producto_b,
+    d.descripcion_al_momento,
+    d.cantidad_solicitada,
+    -- modulo_b.productos referenciado sin FK física (ADR-004)
+    bp.stock_actual,
+    bp.stock_minimo,
+    (bp.stock_minimo - bp.stock_actual) AS deficit_stock,
+    c.saldo_pendiente,
+    c.fecha_vencimiento
+FROM  ordenes_compra        o
+JOIN  detalle_orden_compra  d   ON d.id_oc          = o.id_oc
+JOIN  proveedores           p   ON p.id_proveedor   = o.id_proveedor
+LEFT JOIN facturas_proveedor fp ON fp.id_oc          = o.id_oc AND fp.activo = 1
+LEFT JOIN cuentas_por_pagar  c  ON c.id_factura_prov = fp.id_factura_prov AND c.activo = 1
+-- FK hacia Módulo B (inventarios): modulo_b.productos.id_producto
+JOIN  modulo_b.productos    bp  ON bp.id_producto   = d.ref_mod_b_id_producto
+WHERE o.activo = 1
+  AND d.activo = 1
+  AND bp.stock_actual < bp.stock_minimo;
+
+-- ============================================================
+-- 5. PROCEDIMIENTOS ALMACENADOS
+-- ============================================================
+
+DELIMITER $$
+
+-- ------------------------------------------------------------
+-- sp_crear_orden_compra
+-- RF02/RF15 — crea OC y actualiza solicitud de MOD-B si aplica
+-- ------------------------------------------------------------
+CREATE PROCEDURE sp_crear_orden_compra(
+    IN p_id_proveedor    INT UNSIGNED,
+    IN p_id_solicitud    INT UNSIGNED,   -- NULL si no viene de alerta de stock
+    IN p_items           JSON,           -- [{"id_producto":1,"descripcion":"X","cantidad":10,"precio":5.00}]
+    IN p_fecha_entrega   DATE,
+    IN p_observaciones   TEXT,
+    IN p_usuario         VARCHAR(100)
+)
+BEGIN
+    DECLARE v_id_oc      INT UNSIGNED;
+    DECLARE v_numero_oc  VARCHAR(20);
+    DECLARE v_total      DECIMAL(12,2) DEFAULT 0;
+    DECLARE v_i          INT DEFAULT 0;
+    DECLARE v_n          INT;
+    DECLARE v_id_prod    INT UNSIGNED;
+    DECLARE v_desc       VARCHAR(200);
+    DECLARE v_cant       INT;
+    DECLARE v_precio     DECIMAL(12,2);
+    DECLARE v_subtotal   DECIMAL(12,2);
+
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        ROLLBACK;
+        RESIGNAL;
+    END;
+
+    START TRANSACTION;
+
+    SET v_numero_oc = CONCAT('OC-', DATE_FORMAT(NOW(), '%Y%m'), '-', LPAD(FLOOR(RAND()*99999), 5, '0'));
+
+    INSERT INTO ordenes_compra (
+        numero_oc, id_proveedor, ref_mod_b_id_solicitud,
+        fecha_emision, fecha_entrega_esperada, estado,
+        observaciones, activo, fecha_creacion, usuario_creacion
+    ) VALUES (
+        v_numero_oc, p_id_proveedor, p_id_solicitud,
+        CURDATE(), p_fecha_entrega, 'borrador',
+        p_observaciones, 1, NOW(), p_usuario
+    );
+
+    SET v_id_oc = LAST_INSERT_ID();
+    SET v_n     = JSON_LENGTH(p_items);
+
+    WHILE v_i < v_n DO
+        SET v_id_prod  = JSON_UNQUOTE(JSON_EXTRACT(p_items, CONCAT('$[', v_i, '].id_producto')));
+        SET v_desc     = JSON_UNQUOTE(JSON_EXTRACT(p_items, CONCAT('$[', v_i, '].descripcion')));
+        SET v_cant     = JSON_UNQUOTE(JSON_EXTRACT(p_items, CONCAT('$[', v_i, '].cantidad')));
+        SET v_precio   = JSON_UNQUOTE(JSON_EXTRACT(p_items, CONCAT('$[', v_i, '].precio')));
+        SET v_subtotal = v_cant * v_precio;
+        SET v_total    = v_total + v_subtotal;
+
+        INSERT INTO detalle_orden_compra (
+            id_oc, ref_mod_b_id_producto, descripcion_al_momento,
+            cantidad_solicitada, precio_unitario_pactado, subtotal,
+            activo, fecha_creacion, usuario_creacion
+        ) VALUES (
+            v_id_oc, v_id_prod, v_desc,
+            v_cant, v_precio, v_subtotal,
+            1, NOW(), p_usuario
+        );
+
+        SET v_i = v_i + 1;
+    END WHILE;
+
+    UPDATE ordenes_compra SET total_estimado = v_total WHERE id_oc = v_id_oc;
+
+    -- Si la OC viene de una solicitud de MOD-B, actualiza estado en tabla interfaz
+    -- FK hacia Módulo B (inventarios): modulo_b.solicitudes_compra.id_solicitud
+    IF p_id_solicitud IS NOT NULL THEN
+        UPDATE modulo_b.solicitudes_compra
+        SET    estado         = 'procesada',
+               id_oc_generada = v_id_oc
+        WHERE  id_solicitud   = p_id_solicitud;
+    END IF;
+
+    COMMIT;
+    SELECT v_id_oc AS id_oc_creada, v_numero_oc AS numero_oc;
+END$$
+
+-- ------------------------------------------------------------
+-- sp_registrar_recepcion
+-- RF03/RF04/RF13 — recepción parcial o completa + notifica MOD-B
+-- ------------------------------------------------------------
+CREATE PROCEDURE sp_registrar_recepcion(
+    IN p_id_oc          INT UNSIGNED,
+    IN p_tipo           ENUM('completa','parcial'),
+    IN p_items          JSON,   -- [{"id_detalle_oc":1,"id_producto":1,"cantidad_recibida":5}]
+    IN p_observaciones  TEXT,
+    IN p_usuario        VARCHAR(100)
+)
+BEGIN
+    DECLARE v_id_rec INT UNSIGNED;
+    DECLARE v_i      INT DEFAULT 0;
+    DECLARE v_n      INT;
+
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        ROLLBACK;
+        RESIGNAL;
+    END;
+
+    START TRANSACTION;
+
+    -- notificado_inventario = 0; se actualiza a 1 cuando MOD-B confirme (IF-03)
+    INSERT INTO recepciones (
+        id_oc, fecha_recepcion, tipo_recepcion,
+        notificado_inventario, observaciones,
+        activo, fecha_creacion, usuario_creacion
+    ) VALUES (
+        p_id_oc, CURDATE(), p_tipo,
+        0, p_observaciones,
+        1, NOW(), p_usuario
+    );
+
+    SET v_id_rec = LAST_INSERT_ID();
+    SET v_n      = JSON_LENGTH(p_items);
+
+    WHILE v_i < v_n DO
+        INSERT INTO detalle_recepcion (
+            id_recepcion, id_detalle_oc, ref_mod_b_id_producto,
+            cantidad_recibida, activo, fecha_creacion, usuario_creacion
+        ) VALUES (
+            v_id_rec,
+            JSON_UNQUOTE(JSON_EXTRACT(p_items, CONCAT('$[', v_i, '].id_detalle_oc'))),
+            JSON_UNQUOTE(JSON_EXTRACT(p_items, CONCAT('$[', v_i, '].id_producto'))),
+            JSON_UNQUOTE(JSON_EXTRACT(p_items, CONCAT('$[', v_i, '].cantidad_recibida'))),
+            1, NOW(), p_usuario
+        );
+        SET v_i = v_i + 1;
+    END WHILE;
+
+    -- El trigger trg_recepcion_after_insert ya actualizó el estado de ordenes_compra.
+    -- La notificación a MOD-B (IF-03 POST /inventario/movimiento) se realiza
+    -- desde la capa de aplicación; si confirma, actualiza notificado_inventario = 1.
+    COMMIT;
+    SELECT v_id_rec AS id_recepcion_creada;
+END$$
+
+-- ------------------------------------------------------------
+-- sp_generar_cuenta_por_pagar
+-- RF06 — genera CxP desde factura; también llamado por trigger
+-- ------------------------------------------------------------
+CREATE PROCEDURE sp_generar_cuenta_por_pagar(
+    IN p_id_factura_prov INT UNSIGNED
+)
+BEGIN
+    DECLARE v_venc DATE;
+    DECLARE v_total DECIMAL(12,2);
+    DECLARE v_id_proveedor INT UNSIGNED;
+    DECLARE v_fecha_emision DATE;
+
+    SELECT id_proveedor, total, fecha_emision
+    INTO   v_id_proveedor, v_total, v_fecha_emision
+    FROM   facturas_proveedor
+    WHERE  id_factura_prov = p_id_factura_prov;
+
+    SET v_venc = fn_calcular_fecha_vencimiento(v_fecha_emision, v_id_proveedor);
+
+    INSERT INTO cuentas_por_pagar (
+        id_proveedor, id_factura_prov,
+        monto_original, saldo_pendiente,
+        fecha_vencimiento, fecha_programada,
+        estado, activo, fecha_creacion
+    ) VALUES (
+        v_id_proveedor, p_id_factura_prov,
+        v_total, v_total,
+        v_venc, NULL,
+        'pendiente', 1, NOW()
+    );
+END$$
+
+-- ------------------------------------------------------------
+-- sp_ingresar_factura_proveedor
+-- RF05/RF17 — registra factura y envía payload a MOD-D (IF-05)
+-- ------------------------------------------------------------
+CREATE PROCEDURE sp_ingresar_factura_proveedor(
+    IN p_numero_factura       VARCHAR(20),
+    IN p_numero_serie         VARCHAR(7),
+    IN p_codigo_sustento      VARCHAR(2),
+    IN p_id_proveedor         INT UNSIGNED,
+    IN p_id_oc                INT UNSIGNED,
+    IN p_id_recepcion         INT UNSIGNED,
+    IN p_base_imponible       DECIMAL(12,2),
+    IN p_monto_iva            DECIMAL(12,2),
+    IN p_tipo_bien_servicio   VARCHAR(10),
+    IN p_ref_mod_d_tarifa_id  INT UNSIGNED,
+    IN p_usuario              VARCHAR(100)
+)
+BEGIN
+    DECLARE v_total DECIMAL(12,2);
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        ROLLBACK;
+        RESIGNAL;
+    END;
+
+    SET v_total = p_base_imponible + p_monto_iva;
+
+    START TRANSACTION;
+
+    INSERT INTO facturas_proveedor (
+        numero_factura_proveedor, numero_serie,
+        id_proveedor, id_oc, id_recepcion,
+        fecha_emision, base_imponible, monto_iva, total,
+        codigo_sustento, tipo_bien_servicio, ref_mod_d_tarifa_id,
+        estado, activo, fecha_creacion, usuario_creacion
+    ) VALUES (
+        p_numero_factura, p_numero_serie,
+        p_id_proveedor, p_id_oc, p_id_recepcion,
+        CURDATE(), p_base_imponible, p_monto_iva, v_total,
+        p_codigo_sustento, p_tipo_bien_servicio, p_ref_mod_d_tarifa_id,
+        'pendiente_retencion', 1, NOW(), p_usuario
+    );
+    -- El trigger trg_factura_after_insert genera automáticamente la CxP.
+    -- La llamada a MOD-D (IF-05 POST /impuestos/retencion) se realiza desde la app
+    -- con payload: {idFactura, rucProveedor, tipoProveedor, baseImponible,
+    --               iva, tipoBienServicio, codigoSustento, fecha}
+    COMMIT;
+END$$
+
+-- ------------------------------------------------------------
+-- sp_registrar_pago
+-- RF07/RF08 — registra un desembolso; trigger actualiza saldo
+-- ------------------------------------------------------------
+CREATE PROCEDURE sp_registrar_pago(
+    IN p_id_cxp      INT UNSIGNED,
+    IN p_monto       DECIMAL(12,2),
+    IN p_forma_pago  ENUM('transferencia','cheque','efectivo'),
+    IN p_referencia  VARCHAR(100),
+    IN p_usuario     VARCHAR(100)
+)
+BEGIN
+    DECLARE v_saldo    DECIMAL(12,2);
+    DECLARE v_id_prov  INT UNSIGNED;
+
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        ROLLBACK;
+        RESIGNAL;
+    END;
+
+    SELECT saldo_pendiente, id_proveedor
+    INTO   v_saldo, v_id_prov
+    FROM   cuentas_por_pagar
+    WHERE  id_cxp  = p_id_cxp
+      AND  activo  = 1;
+
+    IF p_monto > v_saldo THEN
+        SIGNAL SQLSTATE '45000'
+            SET MESSAGE_TEXT = 'El monto a pagar supera el saldo pendiente de la cuenta.';
+    END IF;
+
+    START TRANSACTION;
+    INSERT INTO pagos_proveedor (
+        id_cxp, id_proveedor, fecha_pago,
+        monto, forma_pago, referencia,
+        activo, fecha_creacion, usuario_creacion
+    ) VALUES (
+        p_id_cxp, v_id_prov, CURDATE(),
+        p_monto, p_forma_pago, p_referencia,
+        1, NOW(), p_usuario
+    );
+    -- El trigger trg_pago_after_insert actualiza saldo_pendiente y estado en cuentas_por_pagar
+    COMMIT;
+END$$
+
+-- ------------------------------------------------------------
+-- sp_programar_pago
+-- RF — Programación de pagos
+-- ------------------------------------------------------------
+CREATE PROCEDURE sp_programar_pago(
+    IN p_id_cxp          INT UNSIGNED,
+    IN p_fecha_programada DATE,
+    IN p_usuario          VARCHAR(100)
+)
+BEGIN
+    IF p_fecha_programada < CURDATE() THEN
+        SIGNAL SQLSTATE '45000'
+            SET MESSAGE_TEXT = 'La fecha programada no puede ser anterior a hoy.';
+    END IF;
+
+    UPDATE cuentas_por_pagar
+    SET    fecha_programada      = p_fecha_programada,
+           fecha_modificacion    = NOW(),
+           usuario_modificacion  = p_usuario
+    WHERE  id_cxp  = p_id_cxp
+      AND  activo  = 1;
+END$$
+
+-- ------------------------------------------------------------
+-- sp_actualizar_retencion_desde_modd
+-- RF17 — recibe respuesta asíncrona de MOD-D (IF-05)
+-- ------------------------------------------------------------
+CREATE PROCEDURE sp_actualizar_retencion_desde_modd(
+    IN p_id_factura_prov        INT UNSIGNED,
+    IN p_xml_retencion          LONGTEXT,
+    IN p_num_autorizacion       VARCHAR(49)
+)
+BEGIN
+    UPDATE facturas_proveedor
+    SET    xml_retencion               = p_xml_retencion,
+           num_autorizacion_retencion  = p_num_autorizacion,
+           estado                      = 'retencion_generada',
+           fecha_modificacion          = NOW()
+    WHERE  id_factura_prov = p_id_factura_prov;
+END$$
+
+-- ------------------------------------------------------------
+-- sp_reporte_obligaciones_pendientes
+-- RF12 — reporte agrupado con subtotales
+-- ------------------------------------------------------------
+CREATE PROCEDURE sp_reporte_obligaciones_pendientes(
+    IN p_criterio  ENUM('proveedor','vencimiento','estado'),
+    IN p_desde     DATE,
+    IN p_hasta     DATE
+)
+BEGIN
+    SELECT
+        razon_social,
+        identificacion,
+        numero_factura_proveedor,
+        numero_serie,
+        monto_original,
+        saldo_pendiente,
+        fecha_vencimiento,
+        fecha_programada,
+        estado,
+        dias_para_vencer
+    FROM  vw_cuentas_pendientes
+    WHERE fecha_vencimiento BETWEEN p_desde AND p_hasta
+    ORDER BY
+        CASE p_criterio
+            WHEN 'proveedor'    THEN razon_social
+            WHEN 'vencimiento'  THEN CAST(dias_para_vencer AS CHAR)
+            WHEN 'estado'       THEN estado
+            ELSE razon_social
+        END;
+END$$
+
+-- ------------------------------------------------------------
+-- sp_estado_cuenta_proveedor
+-- RF09/RF10 — historial cronológico con saldo acumulado
+-- ------------------------------------------------------------
+CREATE PROCEDURE sp_estado_cuenta_proveedor(
+    IN p_id_proveedor INT UNSIGNED,
+    IN p_desde        DATE,
+    IN p_hasta        DATE
+)
+BEGIN
+    SELECT *
+    FROM   vw_estado_cuenta_proveedor
+    WHERE  id_proveedor  = p_id_proveedor
+      AND  fecha_emision BETWEEN p_desde AND p_hasta
+    ORDER BY fecha_emision, id_pago;
+END$$
+
+-- ------------------------------------------------------------
+-- sp_reintentar_notificaciones_modb
+-- RNF02 — robustez ante fallos en IF-03 → MOD-B
+-- Nota: la llamada HTTP efectiva se realiza desde la capa de app;
+--       este SP lista los pendientes y actualiza tras confirmación.
+-- ------------------------------------------------------------
+CREATE PROCEDURE sp_reintentar_notificaciones_modb()
+BEGIN
+    -- Lista recepciones con notificado_inventario = 0 para reintento externo
+    SELECT id_recepcion, id_oc, ref_mod_b_id_producto, cantidad_recibida
+    FROM   vw_recepciones_pendientes_notificar;
+    -- La app itera, llama IF-03 y ejecuta:
+    --   UPDATE recepciones SET notificado_inventario=1 WHERE id_recepcion = ?
+END$$
+
+DELIMITER ;
