@@ -1,3 +1,42 @@
+-- ====================================================================================
+-- 1. TABLAS DE CATÁLOGO (Cosas que pueden crecer en el futuro)
+-- ====================================================================================
+
+CREATE TABLE cat_tipos_cliente (
+    id TINYINT UNSIGNED PRIMARY KEY,
+    nombre VARCHAR(30) NOT NULL UNIQUE
+);
+
+INSERT INTO cat_tipos_cliente (id, nombre) VALUES (1, 'NATURAL'), (2, 'JURIDICA');
+
+CREATE TABLE cat_estados_facturas (
+    id TINYINT UNSIGNED PRIMARY KEY,
+    nombre VARCHAR(20) NOT NULL
+);
+
+INSERT INTO cat_estados_facturas (id, nombre) VALUES 
+(1, 'PENDIENTE'), (2, 'VENCIDA'), (3, 'PAGADA'), (4, 'ANULADA');
+
+CREATE TABLE cat_estados_cxc (
+    id TINYINT UNSIGNED PRIMARY KEY,
+    nombre VARCHAR(20) NOT NULL
+);
+
+INSERT INTO cat_estados_cxc (id, nombre) VALUES 
+(1, 'AL_DIA'), (2, 'EN_MORA'), (3, 'CANCELADA');
+
+CREATE TABLE cat_formas_pago (
+    id TINYINT UNSIGNED PRIMARY KEY,
+    nombre VARCHAR(30) NOT NULL
+);
+
+INSERT INTO cat_formas_pago (id, nombre) VALUES 
+(1, 'EFECTIVO'), (2, 'TRANSFERENCIA'), (3, 'CHEQUE'), (4, 'TARJETA DE CRÉDITO');
+
+-- ====================================================================================
+-- 2. TABLAS MAESTRAS (Clientes y Vendedores)
+-- ====================================================================================
+
 CREATE TABLE clientes (
     id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     tipo_cliente_id TINYINT UNSIGNED NOT NULL,
@@ -5,11 +44,8 @@ CREATE TABLE clientes (
     telefono VARCHAR(20),
     correo_electronico VARCHAR(100),
     dias_credito INT UNSIGNED NOT NULL DEFAULT 0,
-	estado_id TINYINT UNSIGNED NOT NULL DEFAULT 1,
-	-- estado_de_registro TINYINT(1) DEFAULT 1, Tabla Distribuida
-    -- fecha_borrado DATETIME NULL,
-	CONSTRAINT fk_cliente_tipo FOREIGN KEY (tipo_cliente_id) REFERENCES cat_tipos_cliente(id) ON DELETE RESTRICT,
-    CONSTRAINT fk_cliente_estado FOREIGN KEY (estado_id) REFERENCES cat_estados_clientes_vendedores(id) ON DELETE RESTRICT
+    estado ENUM('ACTIVO', 'INACTIVO') NOT NULL DEFAULT 'ACTIVO', -- Se usa ENUM por ser binario estático
+    CONSTRAINT fk_cliente_tipo FOREIGN KEY (tipo_cliente_id) REFERENCES cat_tipos_cliente(id) ON DELETE RESTRICT
 );
 
 CREATE TABLE personas_naturales (
@@ -17,7 +53,7 @@ CREATE TABLE personas_naturales (
     cedula VARCHAR(10) NOT NULL UNIQUE,
     nombres VARCHAR(100) NOT NULL,
     apellidos VARCHAR(100) NOT NULL,
-    CONSTRAINT fk_cliente_natural FOREIGN KEY (cliente_id) REFERENCES clientes(id) ON DELETE CASCADE,
+    CONSTRAINT fk_pnatural_cliente FOREIGN KEY (cliente_id) REFERENCES clientes(id) ON DELETE CASCADE,
     CONSTRAINT chk_cedula_len CHECK (CHAR_LENGTH(cedula) = 10)
 );
 
@@ -26,9 +62,7 @@ CREATE TABLE personas_juridicas (
     ruc VARCHAR(13) NOT NULL UNIQUE,
     razon_social VARCHAR(150) NOT NULL,
     representante_legal VARCHAR(150),
-    estado_de_registro TINYINT(1) DEFAULT 1,
-    fecha_borrado DATETIME NULL,
-    CONSTRAINT fk_cliente_juridico FOREIGN KEY (cliente_id) REFERENCES clientes(id) ON DELETE CASCADE,
+    CONSTRAINT fk_pjuridica_cliente FOREIGN KEY (cliente_id) REFERENCES clientes(id) ON DELETE CASCADE,
     CONSTRAINT chk_ruc_len CHECK (CHAR_LENGTH(ruc) = 13)
 );
 
@@ -39,11 +73,12 @@ CREATE TABLE vendedores (
     apellidos VARCHAR(100) NOT NULL,
     zona VARCHAR(50) NOT NULL,
     porcentaje_comision DECIMAL(5,2) NOT NULL DEFAULT 0.00,
-    estado_id TINYINT UNSIGNED NOT NULL DEFAULT 1,
-    -- estado_de_registro TINYINT(1) DEFAULT 1, Tabla Distribuida
-    -- fecha_borrado DATETIME NULL,
-    CONSTRAINT fk_vendedor_estado FOREIGN KEY (estado_id) REFERENCES cat_estados_clientes_vendedores(id)
+    estado ENUM('ACTIVO', 'INACTIVO') NOT NULL DEFAULT 'ACTIVO' -- Se usa ENUM por ser binario estático
 );
+
+-- ====================================================================================
+-- 3. TRANSACCIONES (Facturas, Detalles y Pagos)
+-- ====================================================================================
 
 CREATE TABLE facturas (
     id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
@@ -52,23 +87,23 @@ CREATE TABLE facturas (
     total DECIMAL(10,2) NOT NULL,
     cliente_id INT UNSIGNED NOT NULL,
     vendedor_id INT UNSIGNED NOT NULL,
-    estado_id TINYINT UNSIGNED NOT NULL DEFAULT 1,
-	-- estado_de_registro TINYINT(1) DEFAULT 1, Tabla Distribuida
-    -- fecha_borrado DATETIME NULL,
+    estado_id TINYINT UNSIGNED NOT NULL DEFAULT 1, -- Relación a Catálogo
     CONSTRAINT fk_factura_cliente FOREIGN KEY (cliente_id) REFERENCES clientes(id) ON DELETE RESTRICT,
     CONSTRAINT fk_factura_vendedor FOREIGN KEY (vendedor_id) REFERENCES vendedores(id) ON DELETE RESTRICT,
-    CONSTRAINT fk_factura_estado FOREIGN KEY (estado_id) REFERENCES cat_estados_facturas(id)
+    CONSTRAINT fk_factura_estado FOREIGN KEY (estado_id) REFERENCES cat_estados_facturas(id) ON DELETE RESTRICT
 );
 
 CREATE TABLE detalle_factura (
     id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     factura_id INT UNSIGNED NOT NULL,
-    producto_id INT UNSIGNED NOT NULL, -- FK hacia Módulo B: productos.codigo
+    producto_id INT UNSIGNED NOT NULL COMMENT 'FK hacia Módulo B (Inventarios): modulo_b.productos.product_id',
     cantidad INT UNSIGNED NOT NULL,
     precio DECIMAL(10,2) NOT NULL,
     descuento DECIMAL(10,2) NOT NULL DEFAULT 0.00,
-    CONSTRAINT fk_detalle_factura FOREIGN KEY (factura_id) REFERENCES facturas(id) ON DELETE CASCADE
+    CONSTRAINT fk_detalle_factura FOREIGN KEY (factura_id) REFERENCES facturas(id) ON DELETE CASCADE,
+    CONSTRAINT fk_detalle_producto FOREIGN KEY (producto_id) REFERENCES modulo_b.productos(product_id) ON DELETE RESTRICT
 );
+CREATE INDEX idx_detalle_producto ON detalle_factura(producto_id);
 
 CREATE TABLE cuentas_por_cobrar (
     id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
@@ -76,10 +111,8 @@ CREATE TABLE cuentas_por_cobrar (
     fecha_vencimiento DATE NOT NULL,
     saldo_pendiente DECIMAL(10,2) NOT NULL,
     estado_id TINYINT UNSIGNED NOT NULL DEFAULT 1,
-    -- estado_de_registro TINYINT(1) DEFAULT 1, Tabla Distribuida
-    -- fecha_borrado DATETIME NULL,
-    CONSTRAINT fk_cxc_factura FOREIGN KEY (factura_id) REFERENCES facturas(id),
-    CONSTRAINT fk_cxc_estado FOREIGN KEY (estado_id) REFERENCES cat_estados_cxc(id)
+    CONSTRAINT fk_cxc_factura FOREIGN KEY (factura_id) REFERENCES facturas(id) ON DELETE RESTRICT,
+    CONSTRAINT fk_cxc_estado FOREIGN KEY (estado_id) REFERENCES cat_estados_cxc(id) ON DELETE RESTRICT
 );
 
 CREATE TABLE pagos_cliente (
@@ -88,61 +121,7 @@ CREATE TABLE pagos_cliente (
     fecha DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     monto DECIMAL(10,2) NOT NULL,
     forma_pago_id TINYINT UNSIGNED NOT NULL,
-    -- estado_de_registro TINYINT(1) DEFAULT 1, Tabla Distribuida
-    -- fecha_borrado DATETIME NULL,
     CONSTRAINT fk_pago_factura FOREIGN KEY (factura_id) REFERENCES facturas(id) ON DELETE RESTRICT,
     CONSTRAINT fk_pago_forma FOREIGN KEY (forma_pago_id) REFERENCES cat_formas_pago(id) ON DELETE RESTRICT,
     CONSTRAINT chk_monto_pago CHECK (monto > 0)
 );
-
--- Estados
-CREATE TABLE cat_estados_clientes_vendedores (
-    id TINYINT UNSIGNED PRIMARY KEY,
-    nombre VARCHAR(20) NOT NULL
-);
-
-INSERT INTO cat_estados_clientes_vendedores (id, nombre) VALUES 
-(1, 'ACTIVO'), 
-(0, 'INACTIVO');
-
-CREATE TABLE cat_tipos_cliente (
-    id TINYINT UNSIGNED PRIMARY KEY,
-    nombre VARCHAR(30) NOT NULL UNIQUE
-);
-
-INSERT INTO cat_tipos_cliente (id, nombre) VALUES 
-(1, 'NATURAL'), 
-(2, 'JURIDICA');
-
-CREATE TABLE cat_estados_facturas (
-    id TINYINT UNSIGNED PRIMARY KEY,
-    nombre VARCHAR(20) NOT NULL
-);
-
-INSERT INTO cat_estados_facturas (id, nombre) VALUES 
-(1, 'PENDIENTE'), 
-(2, 'VENCIDA'), 
-(3, 'PAGADA'), 
-(4, 'ANULADA');
-
-CREATE TABLE cat_estados_cxc (
-    id TINYINT UNSIGNED PRIMARY KEY,
-    nombre VARCHAR(20) NOT NULL
-);
-
-INSERT INTO cat_estados_cxc (id, nombre) VALUES 
-(1, 'AL_DIA'), 
-(2, 'EN_MORA'), 
-(3, 'CANCELADA');
-
-CREATE TABLE cat_formas_pago (
-    id TINYINT UNSIGNED PRIMARY KEY,
-    nombre VARCHAR(30) NOT NULL
-);
-
-INSERT INTO cat_formas_pago (id, nombre) VALUES 
-(1, 'EFECTIVO'), 
-(2, 'TRANSFERENCIA'), 
-(3, 'CHEQUE'), 
-(4, 'TARJETA DE CRÉDITO'),
-(5, 'TARJETA DE DÉBITO');
