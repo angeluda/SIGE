@@ -1,5 +1,8 @@
+use modulo_d;
+
 -- ======================================================
--- MODULO D - VERSION CORREGIDA Y NORMALIZADA
+-- MODULO D - VERSION INTEGRADA Y NORMALIZADA
+-- Compatible con Modulo A, B y C
 -- ======================================================
 
 -- ======================================================
@@ -8,32 +11,52 @@
 
 CREATE TABLE tarifas_iva (
     id_tarifa INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+
     codigo VARCHAR(10) NOT NULL UNIQUE,
+
     porcentaje DECIMAL(5,2) NOT NULL,
+
     descripcion VARCHAR(100),
+
     fecha_vigencia_desde DATE NOT NULL,
+
     fecha_vigencia_hasta DATE,
+
     activo TINYINT(1) DEFAULT 1,
 
     CONSTRAINT chk_tarifa_porcentaje
-    CHECK (porcentaje >= 0)
+    CHECK (porcentaje >= 0
+       AND porcentaje <= 100)
 ) ENGINE=InnoDB;
 
 -- ======================================================
+-- DATOS BASE SRI
+-- 0%, 5%, 15%
+-- ======================================================
+
+INSERT INTO tarifas_iva
+(codigo, porcentaje, descripcion, fecha_vigencia_desde)
+VALUES
+('IVA0', 0.00, 'Tarifa IVA 0%', '2026-01-01'),
+('IVA5', 5.00, 'Tarifa IVA 5%', '2026-01-01'),
+('IVA15', 15.00, 'Tarifa IVA 15%', '2026-01-01');
+
+-- ======================================================
 -- CATALOGO TIPOS DE PROVEEDOR
--- Evita VARCHAR repetidos e inconsistentes
 -- ======================================================
 
 CREATE TABLE cat_tipos_proveedor (
     id_tipo_proveedor TINYINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+
     nombre VARCHAR(50) NOT NULL UNIQUE,
+
     descripcion VARCHAR(150),
+
     activo TINYINT(1) DEFAULT 1
 ) ENGINE=InnoDB;
 
 -- ======================================================
 -- CONFIGURACION RETENCIONES IVA
--- NORMALIZADA
 -- ======================================================
 
 CREATE TABLE retenciones_iva_config (
@@ -58,8 +81,10 @@ CREATE TABLE retenciones_iva_config (
        AND porcentaje_retencion <= 100)
 ) ENGINE=InnoDB;
 
+CREATE INDEX idx_ret_iva_tipo
+ON retenciones_iva_config(id_tipo_proveedor);
+
 -- ======================================================
--- NUEVA TABLA:
 -- CONFIGURACION RETENCIONES RENTA
 -- ======================================================
 
@@ -88,28 +113,39 @@ CREATE TABLE retenciones_renta_config (
 CREATE TABLE liquidacion_iva_mensual (
     id_liquidacion INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
 
-    periodo DATE NOT NULL UNIQUE,
+    anio SMALLINT NOT NULL,
 
-    iva_cobrado_ventas DECIMAL(10,2) DEFAULT 0.00,
+    mes TINYINT NOT NULL,
 
-    iva_pagado_compras DECIMAL(10,2) DEFAULT 0.00,
+    iva_cobrado_ventas DECIMAL(12,2) DEFAULT 0.00,
 
-    credito_tributario_anterior DECIMAL(10,2) DEFAULT 0.00,
+    iva_pagado_compras DECIMAL(12,2) DEFAULT 0.00,
 
-    iva_a_pagar DECIMAL(10,2) DEFAULT 0.00,
+    credito_tributario_anterior DECIMAL(12,2) DEFAULT 0.00,
 
-    saldo_credito DECIMAL(10,2) DEFAULT 0.00,
+    iva_a_pagar DECIMAL(12,2) DEFAULT 0.00,
+
+    saldo_credito DECIMAL(12,2) DEFAULT 0.00,
 
     estado ENUM(
         'borrador',
         'declarado',
         'cerrado'
-    ) DEFAULT 'borrador'
+    ) DEFAULT 'borrador',
+
+    CONSTRAINT uq_periodo
+    UNIQUE(anio, mes),
+
+    CONSTRAINT chk_mes
+    CHECK (mes >= 1 AND mes <= 12)
 ) ENGINE=InnoDB;
+
+CREATE INDEX idx_liquidacion_periodo
+ON liquidacion_iva_mensual(anio, mes);
 
 -- ======================================================
 -- COMPROBANTES DE RETENCION
--- VERSION NORMALIZADA
+-- INTEGRACION CON MODULO C
 -- ======================================================
 
 CREATE TABLE comprobantes_retencion (
@@ -119,28 +155,60 @@ CREATE TABLE comprobantes_retencion (
 
     fecha DATE NOT NULL,
 
-    proveedor_id INT UNSIGNED NOT NULL,
+    -- ==================================================
+    -- REFERENCIAS LOGICAS MODULO C
+    -- ==================================================
 
-    factura_compra_id INT UNSIGNED NOT NULL,
+    -- modulo_c.proveedores.id_proveedor
+    ref_mod_c_proveedor_id INT UNSIGNED NOT NULL,
 
-    base_imponible_renta DECIMAL(10,2) NOT NULL,
+    -- modulo_c.facturas_proveedor.id_factura_prov
+    ref_mod_c_factura_id INT UNSIGNED NOT NULL,
+
+    -- ==================================================
+    -- DATOS TRIBUTARIOS
+    -- ==================================================
+
+    base_imponible_renta DECIMAL(12,2) NOT NULL,
 
     id_ret_renta INT UNSIGNED NOT NULL,
 
-    valor_retencion_renta DECIMAL(10,2) NOT NULL,
+    valor_retencion_renta DECIMAL(12,2) NOT NULL,
 
-    base_imponible_iva DECIMAL(10,2) NOT NULL,
+    base_imponible_iva DECIMAL(12,2) NOT NULL,
 
     id_ret_iva INT UNSIGNED NOT NULL,
 
-    valor_retencion_iva DECIMAL(10,2) NOT NULL,
+    valor_retencion_iva DECIMAL(12,2) NOT NULL,
+
+    subtotal_factura DECIMAL(12,2),
+
+    total_factura DECIMAL(12,2),
+
+    porcentaje_iva_aplicado DECIMAL(5,2),
+
+    codigo_sustento VARCHAR(2),
+
+    -- ==================================================
+    -- XML / SRI
+    -- ==================================================
 
     xml_generado LONGTEXT,
 
     numero_autorizacion_simulado VARCHAR(50),
 
+    estado_sri ENUM(
+        'pendiente',
+        'autorizado',
+        'rechazado'
+    ) DEFAULT 'pendiente',
+
     fecha_generacion TIMESTAMP
     DEFAULT CURRENT_TIMESTAMP,
+
+    -- ==================================================
+    -- FK INTERNAS DEL MODULO D
+    -- ==================================================
 
     CONSTRAINT fk_comp_ret_renta
     FOREIGN KEY (id_ret_renta)
@@ -150,14 +218,37 @@ CREATE TABLE comprobantes_retencion (
     FOREIGN KEY (id_ret_iva)
     REFERENCES retenciones_iva_config(id_ret_iva),
 
-    INDEX idx_ret_compra (factura_compra_id),
+    -- ==================================================
+    -- VALIDACIONES
+    -- ==================================================
 
     CONSTRAINT chk_base_renta
     CHECK (base_imponible_renta >= 0),
 
     CONSTRAINT chk_base_iva
-    CHECK (base_imponible_iva >= 0)
+    CHECK (base_imponible_iva >= 0),
+
+    CONSTRAINT chk_ret_renta_valor
+    CHECK (valor_retencion_renta >= 0),
+
+    CONSTRAINT chk_ret_iva_valor
+    CHECK (valor_retencion_iva >= 0),
+
+    CONSTRAINT chk_total_factura
+    CHECK (total_factura >= 0)
 ) ENGINE=InnoDB;
+
+CREATE INDEX idx_retencion_factura
+ON comprobantes_retencion(ref_mod_c_factura_id);
+
+CREATE INDEX idx_retencion_proveedor
+ON comprobantes_retencion(ref_mod_c_proveedor_id);
+
+CREATE INDEX idx_retencion_fecha
+ON comprobantes_retencion(fecha);
+
+CREATE INDEX idx_retencion_estado
+ON comprobantes_retencion(estado_sri);
 
 -- ======================================================
 -- LOG XML
@@ -185,7 +276,7 @@ CREATE TABLE log_xml_comprobantes (
 ) ENGINE=InnoDB;
 
 -- ======================================================
--- FERIADOS
+-- FERIADOS ECUADOR
 -- ======================================================
 
 CREATE TABLE feriados_ecuador (
@@ -197,12 +288,41 @@ CREATE TABLE feriados_ecuador (
 
     fecha_fin DATE NOT NULL,
 
-    id_tarifa INT UNSIGNED NOT NULL,
+    descripcion VARCHAR(255),
 
-    CONSTRAINT fk_feriado_tarifa
-    FOREIGN KEY (id_tarifa)
-    REFERENCES tarifas_iva(id_tarifa)
+    aplica_nacional TINYINT(1) DEFAULT 1,
+
+    CONSTRAINT chk_fechas_feriado
+    CHECK (fecha_fin >= fecha_inicio)
 ) ENGINE=InnoDB;
+
+-- ======================================================
+-- FERIADOS BASE ECUADOR
+-- ======================================================
+
+INSERT INTO feriados_ecuador
+(nombre_feriado, fecha_inicio, fecha_fin, descripcion)
+VALUES
+('Año Nuevo', '2026-01-01', '2026-01-01',
+ 'Feriado nacional'),
+
+('Carnaval', '2026-02-16', '2026-02-17',
+ 'Feriado nacional'),
+
+('Viernes Santo', '2026-04-03', '2026-04-03',
+ 'Feriado religioso'),
+
+('Dia del Trabajo', '2026-05-01', '2026-05-01',
+ 'Feriado nacional'),
+
+('Primer Grito de Independencia', '2026-08-10', '2026-08-10',
+ 'Feriado nacional'),
+
+('Independencia de Cuenca', '2026-11-03', '2026-11-03',
+ 'Feriado local Cuenca'),
+
+('Navidad', '2026-12-25', '2026-12-25',
+ 'Feriado nacional');
 
 -- ======================================================
 -- DATOS INICIALES
