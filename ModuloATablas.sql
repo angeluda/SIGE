@@ -1,7 +1,3 @@
--- ====================================================================================
--- 1. TABLAS DE CATÁLOGO (Cosas que pueden crecer en el futuro)
--- ====================================================================================
-
 CREATE TABLE cat_tipos_cliente (
     id TINYINT UNSIGNED PRIMARY KEY,
     nombre VARCHAR(30) NOT NULL UNIQUE
@@ -32,10 +28,6 @@ CREATE TABLE cat_formas_pago (
 
 INSERT INTO cat_formas_pago (id, nombre) VALUES 
 (1, 'EFECTIVO'), (2, 'TRANSFERENCIA'), (3, 'CHEQUE'), (4, 'TARJETA DE CRÉDITO');
-
--- ====================================================================================
--- 2. TABLAS MAESTRAS (Clientes y Vendedores)
--- ====================================================================================
 
 CREATE TABLE clientes (
     id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
@@ -73,12 +65,8 @@ CREATE TABLE vendedores (
     apellidos VARCHAR(100) NOT NULL,
     zona VARCHAR(50) NOT NULL,
     porcentaje_comision DECIMAL(5,2) NOT NULL DEFAULT 0.00,
-    estado ENUM('ACTIVO', 'INACTIVO') NOT NULL DEFAULT 'ACTIVO' -- Se usa ENUM por ser binario estático
+    estado ENUM('ACTIVO', 'INACTIVO') NOT NULL DEFAULT 'ACTIVO'
 );
-
--- ====================================================================================
--- 3. TRANSACCIONES (Facturas, Detalles y Pagos)
--- ====================================================================================
 
 CREATE TABLE facturas (
     id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
@@ -87,7 +75,7 @@ CREATE TABLE facturas (
     total DECIMAL(10,2) NOT NULL,
     cliente_id INT UNSIGNED NOT NULL,
     vendedor_id INT UNSIGNED NOT NULL,
-    estado_id TINYINT UNSIGNED NOT NULL DEFAULT 1, -- Relación a Catálogo
+    estado_id TINYINT UNSIGNED NOT NULL DEFAULT 1,
     CONSTRAINT fk_factura_cliente FOREIGN KEY (cliente_id) REFERENCES clientes(id) ON DELETE RESTRICT,
     CONSTRAINT fk_factura_vendedor FOREIGN KEY (vendedor_id) REFERENCES vendedores(id) ON DELETE RESTRICT,
     CONSTRAINT fk_factura_estado FOREIGN KEY (estado_id) REFERENCES cat_estados_facturas(id) ON DELETE RESTRICT
