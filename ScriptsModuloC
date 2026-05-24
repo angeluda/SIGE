@@ -228,7 +228,7 @@ CREATE TABLE facturas_proveedor (
     -- FK lógica hacia Módulo D: documento de retención generado
     ref_mod_d_doc_id                INT UNSIGNED    NULL,
     -- Datos de autorización SRI devueltos por MOD-D (IF-05 respuesta asíncrona)
-    num_autorizacion_retencion      VARCHAR(49)     NULL,
+    num_autorizacion_retencion      VARCHAR(50)     NULL,
     xml_retencion                   LONGTEXT        NULL,
     activo                          TINYINT(1)      NOT NULL DEFAULT 1,
     fecha_creacion                  DATETIME        NOT NULL DEFAULT NOW(),
