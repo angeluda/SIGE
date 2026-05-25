@@ -2388,14 +2388,14 @@ TO 'rol_jefe_compras';
 
 -- El Jefe de Compras no debe registrar pagos ni modificar saldos.
 -- REVOKE documentado para impedir privilegios financieros si fueron concedidos por error.
---REVOKE EXECUTE ON PROCEDURE modulo_c.sp_registrar_pago
---FROM 'rol_jefe_compras';
+-- REVOKE EXECUTE ON PROCEDURE modulo_c.sp_registrar_pago
+-- FROM 'rol_jefe_compras';
 
---REVOKE EXECUTE ON PROCEDURE modulo_c.sp_programar_pago
---FROM 'rol_jefe_compras';
+-- REVOKE EXECUTE ON PROCEDURE modulo_c.sp_programar_pago
+-- FROM 'rol_jefe_compras';
 
---REVOKE EXECUTE ON PROCEDURE modulo_c.sp_conciliar_saldos_proveedor
---FROM 'rol_jefe_compras';
+-- REVOKE EXECUTE ON PROCEDURE modulo_c.sp_conciliar_saldos_proveedor
+-- FROM 'rol_jefe_compras';
 
 -- ------------------------------------------------------------
 -- 6.3 Permisos para Tesorero
@@ -2439,14 +2439,14 @@ GRANT SELECT ON modulo_c.pagos_proveedor
 TO 'rol_tesorero';
 
 -- El Tesorero no debe crear órdenes, recepciones ni registrar facturas.
---REVOKE EXECUTE ON PROCEDURE modulo_c.sp_crear_orden_compra
---FROM 'rol_tesorero';
+-- REVOKE EXECUTE ON PROCEDURE modulo_c.sp_crear_orden_compra
+-- FROM 'rol_tesorero';
 
---REVOKE EXECUTE ON PROCEDURE modulo_c.sp_registrar_recepcion
---FROM 'rol_tesorero';
+-- REVOKE EXECUTE ON PROCEDURE modulo_c.sp_registrar_recepcion
+-- FROM 'rol_tesorero';
 
---REVOKE EXECUTE ON PROCEDURE modulo_c.sp_ingresar_factura_proveedor
---FROM 'rol_tesorero';
+-- REVOKE EXECUTE ON PROCEDURE modulo_c.sp_ingresar_factura_proveedor
+-- FROM 'rol_tesorero';
 
 -- ------------------------------------------------------------
 -- 6.4 Permisos para Administrador del sistema
