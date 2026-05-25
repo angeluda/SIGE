@@ -2333,6 +2333,219 @@ DELIMITER ;
 -- --   115.00, 'transferencia', 'TRF-20260101',
 -- --   'usuario_prueba'
 -- -- );
+
+-- ============================================================
+-- 6. ADMINISTRACIÓN Y SEGURIDAD
+-- Sección 7 del informe: roles, permisos, respaldo y seguridad
+-- ============================================================
+
+-- ------------------------------------------------------------
+-- 6.1 Roles del Módulo C
+-- RNF03: Jefe de Compras, Tesorero y Administrador del sistema
+-- ------------------------------------------------------------
+
+CREATE ROLE IF NOT EXISTS 'rol_jefe_compras';
+CREATE ROLE IF NOT EXISTS 'rol_tesorero';
+CREATE ROLE IF NOT EXISTS 'rol_admin_modulo_c';
+
+-- ------------------------------------------------------------
+-- 6.2 Permisos para Jefe de Compras
+-- Ciclo operativo: proveedores, órdenes, recepciones y facturas
+-- ------------------------------------------------------------
+
+GRANT EXECUTE ON PROCEDURE modulo_c.sp_registrar_proveedor
+TO 'rol_jefe_compras';
+
+GRANT EXECUTE ON PROCEDURE modulo_c.sp_actualizar_proveedor
+TO 'rol_jefe_compras';
+
+GRANT EXECUTE ON PROCEDURE modulo_c.sp_eliminar_proveedor_logico
+TO 'rol_jefe_compras';
+
+GRANT EXECUTE ON PROCEDURE modulo_c.sp_crear_orden_compra
+TO 'rol_jefe_compras';
+
+GRANT EXECUTE ON PROCEDURE modulo_c.sp_registrar_recepcion
+TO 'rol_jefe_compras';
+
+GRANT EXECUTE ON PROCEDURE modulo_c.sp_marcar_recepcion_notificada
+TO 'rol_jefe_compras';
+
+GRANT EXECUTE ON PROCEDURE modulo_c.sp_ingresar_factura_proveedor
+TO 'rol_jefe_compras';
+
+GRANT EXECUTE ON PROCEDURE modulo_c.sp_reporte_ordenes_pendientes_recepcion
+TO 'rol_jefe_compras';
+
+GRANT SELECT ON modulo_c.vw_ordenes_pendientes_recepcion
+TO 'rol_jefe_compras';
+
+GRANT SELECT ON modulo_c.vw_recepciones_pendientes_notificar
+TO 'rol_jefe_compras';
+
+GRANT SELECT ON modulo_c.vw_facturas_pendientes_retencion
+TO 'rol_jefe_compras';
+
+-- El Jefe de Compras no debe registrar pagos ni modificar saldos.
+-- REVOKE documentado para impedir privilegios financieros si fueron concedidos por error.
+REVOKE EXECUTE ON PROCEDURE modulo_c.sp_registrar_pago
+FROM 'rol_jefe_compras';
+
+REVOKE EXECUTE ON PROCEDURE modulo_c.sp_programar_pago
+FROM 'rol_jefe_compras';
+
+REVOKE EXECUTE ON PROCEDURE modulo_c.sp_conciliar_saldos_proveedor
+FROM 'rol_jefe_compras';
+
+-- ------------------------------------------------------------
+-- 6.3 Permisos para Tesorero
+-- Ciclo financiero: pagos, saldos, alertas y reportes
+-- ------------------------------------------------------------
+
+GRANT EXECUTE ON PROCEDURE modulo_c.sp_registrar_pago
+TO 'rol_tesorero';
+
+GRANT EXECUTE ON PROCEDURE modulo_c.sp_programar_pago
+TO 'rol_tesorero';
+
+GRANT EXECUTE ON PROCEDURE modulo_c.sp_estado_cuenta_proveedor
+TO 'rol_tesorero';
+
+GRANT EXECUTE ON PROCEDURE modulo_c.sp_reporte_obligaciones_pendientes
+TO 'rol_tesorero';
+
+GRANT EXECUTE ON PROCEDURE modulo_c.sp_alertar_pagos_por_vencer
+TO 'rol_tesorero';
+
+GRANT EXECUTE ON PROCEDURE modulo_c.sp_conciliar_saldos_proveedor
+TO 'rol_tesorero';
+
+GRANT EXECUTE ON PROCEDURE modulo_c.sp_actualizar_cuentas_vencidas
+TO 'rol_tesorero';
+
+GRANT SELECT ON modulo_c.vw_cuentas_pendientes
+TO 'rol_tesorero';
+
+GRANT SELECT ON modulo_c.vw_pagos_por_vencer
+TO 'rol_tesorero';
+
+GRANT SELECT ON modulo_c.vw_estado_cuenta_proveedor
+TO 'rol_tesorero';
+
+GRANT SELECT ON modulo_c.cuentas_por_pagar
+TO 'rol_tesorero';
+
+GRANT SELECT ON modulo_c.pagos_proveedor
+TO 'rol_tesorero';
+
+-- El Tesorero no debe crear órdenes, recepciones ni registrar facturas.
+REVOKE EXECUTE ON PROCEDURE modulo_c.sp_crear_orden_compra
+FROM 'rol_tesorero';
+
+REVOKE EXECUTE ON PROCEDURE modulo_c.sp_registrar_recepcion
+FROM 'rol_tesorero';
+
+REVOKE EXECUTE ON PROCEDURE modulo_c.sp_ingresar_factura_proveedor
+FROM 'rol_tesorero';
+
+-- ------------------------------------------------------------
+-- 6.4 Permisos para Administrador del sistema
+-- Acceso completo al módulo y revisión de auditoría/logs
+-- ------------------------------------------------------------
+
+GRANT ALL PRIVILEGES ON modulo_c.*
+TO 'rol_admin_modulo_c';
+
+GRANT SELECT ON modulo_c.BitacoraAuditoria
+TO 'rol_admin_modulo_c';
+
+GRANT SELECT ON modulo_c.LogSincronizacion
+TO 'rol_admin_modulo_c';
+
+-- ------------------------------------------------------------
+-- 6.5 Usuarios de ejemplo y asignación de roles
+-- Estos usuarios son referenciales para pruebas del módulo.
+-- ------------------------------------------------------------
+
+CREATE USER IF NOT EXISTS 'jefe_compras_c'@'%'
+IDENTIFIED BY 'JefeCompras_C_2026!';
+
+CREATE USER IF NOT EXISTS 'tesorero_c'@'%'
+IDENTIFIED BY 'Tesorero_C_2026!';
+
+CREATE USER IF NOT EXISTS 'admin_modulo_c'@'%'
+IDENTIFIED BY 'Admin_C_2026!';
+
+GRANT 'rol_jefe_compras'
+TO 'jefe_compras_c'@'%';
+
+GRANT 'rol_tesorero'
+TO 'tesorero_c'@'%';
+
+GRANT 'rol_admin_modulo_c'
+TO 'admin_modulo_c'@'%';
+
+SET DEFAULT ROLE 'rol_jefe_compras'
+TO 'jefe_compras_c'@'%';
+
+SET DEFAULT ROLE 'rol_tesorero'
+TO 'tesorero_c'@'%';
+
+SET DEFAULT ROLE 'rol_admin_modulo_c'
+TO 'admin_modulo_c'@'%';
+
+-- ------------------------------------------------------------
+-- 6.6 Vista segura para enmascaramiento de datos sensibles
+-- Protege identificación y cuenta bancaria de proveedores.
+-- ------------------------------------------------------------
+
+CREATE OR REPLACE VIEW modulo_c.vw_proveedores_seguro AS
+SELECT
+    id_proveedor,
+    tipo_proveedor,
+    CONCAT(LEFT(identificacion, 3), '******', RIGHT(identificacion, 3))
+        AS identificacion_enmascarada,
+    razon_social,
+    email,
+    telefono,
+    direccion,
+    dias_credito,
+    CONCAT('****', RIGHT(cuenta_bancaria, 4))
+        AS cuenta_bancaria_enmascarada,
+    banco,
+    calificacion,
+    activo
+FROM modulo_c.Proveedor
+WHERE activo = 1;
+
+GRANT SELECT ON modulo_c.vw_proveedores_seguro
+TO 'rol_jefe_compras';
+
+GRANT SELECT ON modulo_c.vw_proveedores_seguro
+TO 'rol_tesorero';
+
+-- ------------------------------------------------------------
+-- 6.7 Respaldo y restauración
+-- Estos comandos NO se ejecutan dentro de MySQL Workbench como SQL.
+-- Se documentan para ejecutarse en terminal del sistema operativo.
+-- ------------------------------------------------------------
+
+-- Respaldo completo:
+-- mysqldump -u root -p --databases modulo_c --routines --triggers --events --single-transaction --default-character-set=utf8mb4 > backup_modulo_c_completo.sql
+
+-- Respaldo solo de estructura:
+-- mysqldump -u root -p --databases modulo_c --no-data --routines --triggers --events --default-character-set=utf8mb4 > backup_modulo_c_estructura.sql
+
+-- Respaldo solo de datos:
+-- mysqldump -u root -p modulo_c --no-create-info --single-transaction --default-character-set=utf8mb4 > backup_modulo_c_datos.sql
+
+-- Restauración completa:
+-- mysql -u root -p < backup_modulo_c_completo.sql
+
+-- Restauración solo de datos:
+-- mysql -u root -p modulo_c < backup_modulo_c_datos.sql;
+
+
 USE modulo_c;
 
 INSERT INTO Proveedor
