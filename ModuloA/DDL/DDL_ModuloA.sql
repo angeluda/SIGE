@@ -1,5 +1,5 @@
 -- DDL MÓDULO A — Facturación y Cuentas por Cobrar
-
+USE modulo_a;
 -- TABLAS DE CATÁLOGO
 CREATE TABLE cat_tipos_cliente (
     id TINYINT UNSIGNED PRIMARY KEY,
