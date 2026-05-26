@@ -1,0 +1,735 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SIGE - Módulo A: Facturación y Cuentas por Cobrar</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        .tab-content { display: none; }
+        .tab-content.active { display: block; animation: fadeIn 0.3s ease-in-out; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        .modal-bg { background-color: rgba(0, 0, 0, 0.5); }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-800 font-sans min-h-screen flex flex-col">
+
+    <nav class="bg-blue-800 text-white shadow-md">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-16">
+                <div class="flex items-center gap-3">
+                    <i data-lucide="calculator" class="w-8 h-8"></i>
+                    <span class="font-bold text-xl tracking-tight">SIGE | Módulo A</span>
+                </div>
+                <div class="text-sm text-blue-200">Facturación y Cuentas por Cobrar</div>
+            </div>
+        </div>
+    </nav>
+
+    <div class="flex-grow flex flex-col md:flex-row max-w-7xl mx-auto w-full mt-6 px-4 gap-6 mb-8">
+
+        <aside class="w-full md:w-64 flex flex-col gap-2">
+            <button onclick="switchTab('clientes')" id="btn-clientes" class="tab-btn flex items-center gap-3 px-4 py-3 rounded-lg bg-blue-100 text-blue-800 font-medium transition-colors">
+                <i data-lucide="users"></i> Gestión de Clientes
+            </button>
+            <button onclick="switchTab('facturas')" id="btn-facturas" class="tab-btn flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-gray-200 text-gray-600 transition-colors">
+                <i data-lucide="file-text"></i> Emisión de Facturas
+            </button>
+            <button onclick="switchTab('pagos')" id="btn-pagos" class="tab-btn flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-gray-200 text-gray-600 transition-colors">
+                <i data-lucide="credit-card"></i> Registro de Pagos
+            </button>
+        </aside>
+
+        <main class="flex-grow bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+
+            <div id="alert-container" class="mb-4 hidden p-4 rounded-lg"></div>
+
+            <!-- ── CLIENTES ── -->
+            <section id="tab-clientes" class="tab-content active">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-2xl font-semibold text-gray-800">Gestión de Clientes</h2>
+                    <button onclick="openClienteModal()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition">
+                        <i data-lucide="plus" class="w-4 h-4"></i> Nuevo Cliente
+                    </button>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="bg-gray-50 border-b border-gray-200 text-gray-600 text-sm">
+                                <th class="p-3">ID</th>
+                                <th class="p-3">Cédula/RUC</th>
+                                <th class="p-3">Nombre</th>
+                                <th class="p-3">Email</th>
+                                <th class="p-3 text-right">Origen</th>
+                            </tr>
+                        </thead>
+                        <tbody id="clientes-tbody" class="divide-y divide-gray-100"></tbody>
+                    </table>
+                    <div id="empty-clientes" class="text-center py-8 text-gray-500 hidden">No hay clientes registrados.</div>
+                </div>
+            </section>
+
+            <!-- ── FACTURAS ── -->
+            <section id="tab-facturas" class="tab-content">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-2xl font-semibold text-gray-800">Emisión de Facturas</h2>
+                    <div class="flex items-center gap-4">
+                        <select id="filtro-cliente-facturas" onchange="renderFacturas()" class="p-2 border border-gray-300 rounded text-sm bg-white">
+                            <option value="">Todos los clientes</option>
+                        </select>
+                        <button onclick="openFacturaModal()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition">
+                            <i data-lucide="plus" class="w-4 h-4"></i> Emitir Factura
+                        </button>
+                    </div>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="bg-gray-50 border-b border-gray-200 text-gray-600 text-sm">
+                                <th class="p-3"># Factura</th>
+                                <th class="p-3">Fecha</th>
+                                <th class="p-3">Cliente</th>
+                                <th class="p-3 text-right">Total</th>
+                                <th class="p-3 text-center">Estado</th>
+                            </tr>
+                        </thead>
+                        <tbody id="facturas-tbody" class="divide-y divide-gray-100"></tbody>
+                    </table>
+                    <div id="empty-facturas" class="text-center py-8 text-gray-500 hidden">No se encontraron facturas.</div>
+                </div>
+            </section>
+
+            <!-- ── PAGOS ── -->
+            <section id="tab-pagos" class="tab-content">
+                <h2 class="text-2xl font-semibold text-gray-800 mb-6">Registro de Pagos</h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <div>
+                        <h3 class="text-lg font-medium text-gray-700 mb-3 border-b pb-2">Cuentas por Cobrar</h3>
+                        <div id="facturas-pendientes-list" class="space-y-3"></div>
+                        <div id="empty-pendientes" class="text-center py-6 text-gray-500 text-sm hidden">No hay cuentas pendientes.</div>
+                    </div>
+                    <div class="bg-gray-50 p-5 rounded-lg border border-gray-200">
+                        <h3 class="text-lg font-medium text-gray-700 mb-4 border-b pb-2">Registrar Nuevo Pago</h3>
+                        <form id="form-pago" onsubmit="handlePagoSubmit(event)">
+                            <div class="mb-4">
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Factura Seleccionada</label>
+                                <input type="text" id="pago-factura-display" class="w-full p-2 border border-gray-300 rounded bg-gray-100 text-gray-500" readonly placeholder="Seleccione una cuenta de la lista">
+                                <input type="hidden" id="pago-factura-id">
+                            </div>
+                            <div class="grid grid-cols-2 gap-4 mb-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">Saldo Pendiente</label>
+                                    <div class="relative">
+                                        <span class="absolute left-3 top-2 text-gray-500">$</span>
+                                        <input type="text" id="pago-saldo-actual" class="w-full pl-7 p-2 border border-gray-300 rounded bg-gray-100 text-gray-500" readonly value="0.00">
+                                    </div>
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">Monto a Pagar</label>
+                                    <div class="relative">
+                                        <span class="absolute left-3 top-2 text-gray-500">$</span>
+                                        <input type="number" id="pago-monto" step="0.01" min="0.01" class="w-full pl-7 p-2 border border-gray-300 rounded" required disabled>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="mb-5">
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Método de Pago</label>
+                                <select id="pago-metodo" class="w-full p-2 border border-gray-300 rounded" disabled>
+                                    <option value="1">Efectivo</option>
+                                    <option value="2">Transferencia</option>
+                                    <option value="3">Cheque</option>
+                                    <option value="4">Tarjeta de Crédito</option>
+                                </select>
+                            </div>
+                            <button type="submit" id="btn-submit-pago" class="w-full bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-4 rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+                                Registrar Pago
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- ── MODAL CLIENTE ── -->
+    <div id="modal-cliente" class="fixed inset-0 modal-bg hidden z-50 flex items-center justify-center">
+        <div class="bg-white rounded-xl shadow-xl w-full max-w-md mx-4 overflow-hidden">
+            <div class="bg-gray-50 px-6 py-4 border-b border-gray-200 flex justify-between items-center">
+                <h3 class="text-lg font-semibold text-gray-800">Nuevo Cliente</h3>
+                <button onclick="closeClienteModal()" class="text-gray-400 hover:text-gray-600"><i data-lucide="x" class="w-5 h-5"></i></button>
+            </div>
+            <form id="form-cliente" onsubmit="handleClienteSubmit(event)" class="p-6">
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Tipo Cliente</label>
+                        <select id="cliente-tipo" class="w-full p-2 border border-gray-300 rounded">
+                            <option value="1">Natural</option>
+                            <option value="2">Jurídica</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Identificación *</label>
+                        <input type="text" id="cliente-identificacion" required class="w-full p-2 border border-gray-300 rounded">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Nombre / Razón Social *</label>
+                        <input type="text" id="cliente-nombre" required class="w-full p-2 border border-gray-300 rounded">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Correo Electrónico</label>
+                        <input type="email" id="cliente-email" class="w-full p-2 border border-gray-300 rounded">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Dirección *</label>
+                        <input type="text" id="cliente-direccion" required class="w-full p-2 border border-gray-300 rounded">
+                    </div>
+                </div>
+                <div class="mt-6 flex justify-end gap-3">
+                    <button type="button" onclick="closeClienteModal()" class="px-4 py-2 text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg">Cancelar</button>
+                    <button type="submit" class="px-4 py-2 text-white bg-blue-600 hover:bg-blue-700 rounded-lg">Guardar en BD</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ── MODAL FACTURA ── -->
+    <div id="modal-factura" class="fixed inset-0 modal-bg hidden z-50 flex items-center justify-center">
+        <div class="bg-white rounded-xl shadow-xl w-full max-w-3xl mx-4 overflow-hidden flex flex-col max-h-[90vh]">
+            <div class="bg-gray-50 px-6 py-4 border-b border-gray-200 flex justify-between items-center shrink-0">
+                <h3 class="text-lg font-semibold text-gray-800">Emitir Nueva Factura</h3>
+                <button onclick="closeFacturaModal()" class="text-gray-400 hover:text-gray-600"><i data-lucide="x" class="w-5 h-5"></i></button>
+            </div>
+            <div class="p-6 overflow-y-auto grow">
+                <div class="grid grid-cols-2 gap-6 mb-6">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Cliente *</label>
+                        <select id="factura-cliente" class="w-full p-2 border border-gray-300 rounded" required></select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Fecha Emisión</label>
+                        <input type="date" id="factura-fecha" class="w-full p-2 border border-gray-300 rounded bg-gray-100" readonly>
+                    </div>
+                </div>
+
+                <!-- Tarifa IVA (Módulo D) -->
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">
+                        Tarifa IVA
+                        <span class="ml-2 text-xs text-blue-600 font-normal">(Módulo D — Gestión de Impuestos)</span>
+                    </label>
+                    <select id="factura-tarifa-iva" class="w-full p-2 border border-gray-300 rounded" onchange="calcularTotalesFactura()">
+                        <option value="" data-porcentaje="0">Cargando tarifas...</option>
+                    </select>
+                </div>
+
+                <div class="border-t border-gray-200 pt-4 mb-4">
+                    <h4 class="font-medium text-gray-700 mb-3 flex items-center justify-between">
+                        <span>
+                            Detalle de Factura
+                            <span class="ml-2 text-xs text-green-600 font-normal">(Productos desde Módulo B — Inventarios)</span>
+                        </span>
+                        <button type="button" onclick="addDetalleRow()" class="text-sm bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-1 rounded border border-gray-300 flex items-center gap-1">
+                            <i data-lucide="plus" class="w-3 h-3"></i> Agregar Línea
+                        </button>
+                    </h4>
+                    <table class="w-full text-sm text-left mb-4">
+                        <thead class="bg-gray-50 text-gray-600 border-b">
+                            <tr>
+                                <th class="p-2 w-2/5">Producto (Módulo B)</th>
+                                <th class="p-2 w-1/6 text-center">Stock</th>
+                                <th class="p-2 w-1/6 text-center">Cant.</th>
+                                <th class="p-2 w-1/6 text-right">P. Unit</th>
+                                <th class="p-2 w-1/6 text-right">Subtotal</th>
+                                <th class="p-2 w-10"></th>
+                            </tr>
+                        </thead>
+                        <tbody id="factura-detalles-tbody"></tbody>
+                    </table>
+                </div>
+
+                <div class="flex justify-end border-t border-gray-200 pt-4">
+                    <div class="w-64 space-y-2">
+                        <div class="flex justify-between text-sm text-gray-600">
+                            <span>Subtotal:</span>
+                            <span id="factura-subtotal">$0.00</span>
+                        </div>
+                        <div class="flex justify-between text-sm text-gray-600">
+                            <span id="factura-iva-label">IVA (0%):</span>
+                            <span id="factura-iva">$0.00</span>
+                        </div>
+                        <div class="flex justify-between font-bold text-lg text-gray-800 pt-2 border-t border-gray-200">
+                            <span>Total:</span>
+                            <span id="factura-total">$0.00</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="bg-gray-50 px-6 py-4 border-t border-gray-200 flex justify-end gap-3 shrink-0">
+                <button type="button" onclick="closeFacturaModal()" class="px-4 py-2 text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg">Cancelar</button>
+                <button type="button" onclick="guardarFactura()" class="px-4 py-2 text-white bg-blue-600 hover:bg-blue-700 rounded-lg flex items-center gap-2">
+                    <i data-lucide="save" class="w-4 h-4"></i> Generar Factura
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        lucide.createIcons();
+
+        const API_URL = 'http://localhost:8000/api';
+
+        // Estado global
+        let listaClientesGlobal = [];
+        let productosModuloB = [];   // cargados desde /api/productos  → modulo_b.productos
+        let tarifasIvaModuloD = [];  // cargadas desde /api/tarifas-iva → modulo_d.tarifas_iva
+
+        // ─── Utilidades ───────────────────────────────────────────
+
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.tab-btn').forEach(el => {
+                el.classList.remove('bg-blue-100', 'text-blue-800', 'font-medium');
+                el.classList.add('hover:bg-gray-200', 'text-gray-600');
+            });
+            document.getElementById(`tab-${tabId}`).classList.add('active');
+            const btn = document.getElementById(`btn-${tabId}`);
+            btn.classList.remove('hover:bg-gray-200', 'text-gray-600');
+            btn.classList.add('bg-blue-100', 'text-blue-800', 'font-medium');
+            if (tabId === 'clientes') renderClientes();
+            if (tabId === 'facturas') renderFacturas();
+            if (tabId === 'pagos')    renderFacturasPendientes();
+        }
+
+        function showMessage(msg, type = 'success') {
+            const c = document.getElementById('alert-container');
+            const cls = type === 'success'
+                ? 'bg-green-100 text-green-800 border-green-200'
+                : 'bg-red-100 text-red-800 border-red-200';
+            c.className = `mb-4 p-4 rounded-lg border ${cls} block`;
+            c.innerHTML = `<div class="flex items-center gap-2"><i data-lucide="${type === 'success' ? 'check-circle' : 'alert-circle'}"></i> ${msg}</div>`;
+            lucide.createIcons();
+            setTimeout(() => c.classList.add('hidden'), 4000);
+        }
+
+        // ─── Carga inicial ────────────────────────────────────────
+
+        async function cargarProductosModuloB() {
+            try {
+                const res = await fetch(`${API_URL}/productos`);
+                productosModuloB = await res.json();
+            } catch {
+                console.warn('No se pudieron cargar productos del Módulo B. Usando lista vacía.');
+                productosModuloB = [];
+            }
+        }
+
+        async function cargarTarifasModuloD() {
+            try {
+                const res = await fetch(`${API_URL}/tarifas-iva`);
+                tarifasIvaModuloD = await res.json();
+                const sel = document.getElementById('factura-tarifa-iva');
+                sel.innerHTML = '';
+                tarifasIvaModuloD.forEach(t => {
+                    sel.innerHTML += `<option value="${t.id_tarifa}" data-porcentaje="${t.porcentaje}">${t.descripcion} (${t.porcentaje}%)</option>`;
+                });
+                // Seleccionar la tarifa del 15% por defecto si existe
+                const opt15 = Array.from(sel.options).find(o => parseFloat(o.dataset.porcentaje) === 15);
+                if (opt15) sel.value = opt15.value;
+                calcularTotalesFactura();
+            } catch {
+                console.warn('No se pudieron cargar tarifas del Módulo D. Usando 15% por defecto.');
+                document.getElementById('factura-tarifa-iva').innerHTML =
+                    '<option value="3" data-porcentaje="15">IVA 15% (por defecto)</option>';
+            }
+        }
+
+        async function cargarFiltrosYListas() {
+            try {
+                const res = await fetch(`${API_URL}/clientes`);
+                listaClientesGlobal = await res.json();
+                const filtro = document.getElementById('filtro-cliente-facturas');
+                const prev = filtro.value;
+                filtro.innerHTML = '<option value="">Todos los clientes</option>';
+                listaClientesGlobal.forEach(c => {
+                    filtro.innerHTML += `<option value="${c.id}">${c.identificacion} - ${c.nombre}</option>`;
+                });
+                filtro.value = prev;
+            } catch (e) {
+                console.error(e);
+            }
+        }
+
+        // ─── Clientes ─────────────────────────────────────────────
+
+        async function renderClientes() {
+            try {
+                const res = await fetch(`${API_URL}/clientes`);
+                const clientes = await res.json();
+                listaClientesGlobal = clientes;
+                const tbody = document.getElementById('clientes-tbody');
+                const empty = document.getElementById('empty-clientes');
+                tbody.innerHTML = '';
+                if (clientes.length === 0) {
+                    empty.classList.remove('hidden');
+                } else {
+                    empty.classList.add('hidden');
+                    clientes.forEach(c => {
+                        tbody.innerHTML += `
+                            <tr class="hover:bg-gray-50 transition">
+                                <td class="p-3 border-b border-gray-100 text-gray-500">ID-${c.id}</td>
+                                <td class="p-3 border-b border-gray-100 font-medium">${c.identificacion}</td>
+                                <td class="p-3 border-b border-gray-100">${c.nombre}</td>
+                                <td class="p-3 border-b border-gray-100 text-gray-500">${c.email || 'N/A'}</td>
+                                <td class="p-3 border-b border-gray-100 text-right">
+                                    <span class="inline-flex items-center gap-1 bg-green-50 text-green-700 border border-green-200 px-2 py-0.5 rounded text-xs font-medium">
+                                        <i data-lucide="database" class="w-3 h-3"></i> MySQL
+                                    </span>
+                                </td>
+                            </tr>`;
+                    });
+                    lucide.createIcons();
+                }
+            } catch {
+                showMessage('Servidor backend desconectado.', 'error');
+            }
+        }
+
+        function openClienteModal() {
+            document.getElementById('modal-cliente').classList.remove('hidden');
+            document.getElementById('form-cliente').reset();
+        }
+        function closeClienteModal() {
+            document.getElementById('modal-cliente').classList.add('hidden');
+        }
+
+        async function handleClienteSubmit(e) {
+            e.preventDefault();
+            const payload = {
+                tipo_cliente_id: parseInt(document.getElementById('cliente-tipo').value),
+                identificacion:  document.getElementById('cliente-identificacion').value,
+                nombre:          document.getElementById('cliente-nombre').value,
+                email:           document.getElementById('cliente-email').value,
+                direccion:       document.getElementById('cliente-direccion').value
+            };
+            try {
+                const res = await fetch(`${API_URL}/clientes`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                if (res.ok) {
+                    showMessage('Cliente registrado correctamente en MySQL.');
+                    closeClienteModal();
+                    renderClientes();
+                    cargarFiltrosYListas();
+                } else {
+                    const err = await res.json();
+                    showMessage('Error: ' + (err.detail || 'No se pudo guardar.'), 'error');
+                }
+            } catch {
+                showMessage('No se pudo conectar al servidor.', 'error');
+            }
+        }
+
+        // ─── Facturas ─────────────────────────────────────────────
+
+        async function renderFacturas() {
+            try {
+                const res = await fetch(`${API_URL}/facturas`);
+                const facturas = await res.json();
+                const tbody = document.getElementById('facturas-tbody');
+                const empty = document.getElementById('empty-facturas');
+                const filtroId = document.getElementById('filtro-cliente-facturas').value;
+                tbody.innerHTML = '';
+                const filtradas = filtroId ? facturas.filter(f => f.cliente_id == filtroId) : facturas;
+                if (filtradas.length === 0) {
+                    empty.classList.remove('hidden');
+                } else {
+                    empty.classList.add('hidden');
+                    filtradas.forEach(f => {
+                        const cls = f.estado === 'PAGADA'
+                            ? 'bg-green-100 text-green-800'
+                            : f.estado === 'VENCIDA'
+                                ? 'bg-red-100 text-red-800'
+                                : 'bg-yellow-100 text-yellow-800';
+                        tbody.innerHTML += `
+                            <tr class="hover:bg-gray-50 transition">
+                                <td class="p-3 border-b border-gray-100 font-medium text-blue-600">${f.numero_factura}</td>
+                                <td class="p-3 border-b border-gray-100">${f.fecha}</td>
+                                <td class="p-3 border-b border-gray-100">${f.cliente_nombre}</td>
+                                <td class="p-3 border-b border-gray-100 text-right font-medium">$${parseFloat(f.total).toFixed(2)}</td>
+                                <td class="p-3 border-b border-gray-100 text-center">
+                                    <span class="px-2 py-1 text-xs rounded-full font-medium ${cls}">${f.estado}</span>
+                                </td>
+                            </tr>`;
+                    });
+                }
+            } catch (e) {
+                console.error(e);
+            }
+        }
+
+        function openFacturaModal() {
+            if (listaClientesGlobal.length === 0) {
+                showMessage('Agregue clientes antes de facturar.', 'error');
+                return;
+            }
+            document.getElementById('modal-factura').classList.remove('hidden');
+            document.getElementById('factura-fecha').value = new Date().toISOString().split('T')[0];
+
+            const sel = document.getElementById('factura-cliente');
+            sel.innerHTML = '<option value="">Seleccione un cliente...</option>';
+            listaClientesGlobal.forEach(c => {
+                sel.innerHTML += `<option value="${c.id}">${c.nombre}</option>`;
+            });
+
+            document.getElementById('factura-detalles-tbody').innerHTML = '';
+            // Recargar tarifas frescas desde Módulo D
+            cargarTarifasModuloD().then(() => {
+                addDetalleRow();
+                calcularTotalesFactura();
+            });
+        }
+        function closeFacturaModal() {
+            document.getElementById('modal-factura').classList.add('hidden');
+        }
+
+        function addDetalleRow() {
+            const tbody = document.getElementById('factura-detalles-tbody');
+            const rowId = Date.now();
+
+            let options = '<option value="">Seleccionar producto...</option>';
+            if (productosModuloB.length === 0) {
+                options += '<option disabled>⚠ No hay productos disponibles (Módulo B)</option>';
+            } else {
+                productosModuloB.forEach(p => {
+                    const etiqueta = [p.nombre, p.marca, p.talla ? `T.${p.talla}` : '', p.color].filter(Boolean).join(' | ');
+                    options += `<option value="${p.id}" data-precio="${p.precio_venta}" data-stock="${p.stock}">${etiqueta}</option>`;
+                });
+            }
+
+            const tr = document.createElement('tr');
+            tr.id = `row-${rowId}`;
+            tr.className = 'border-b border-gray-100';
+            tr.innerHTML = `
+                <td class="p-2">
+                    <select class="w-full p-1.5 border border-gray-300 rounded text-sm row-producto" onchange="seleccionarProducto(${rowId})">
+                        ${options}
+                    </select>
+                </td>
+                <td class="p-2 text-center text-sm font-medium text-gray-500 row-stock">-</td>
+                <td class="p-2">
+                    <input type="number" class="w-full p-1.5 border border-gray-300 rounded text-center text-sm row-cant" min="1" value="1" onchange="calcularLinea(${rowId})">
+                </td>
+                <td class="p-2 relative">
+                    <span class="absolute left-3 top-3 text-gray-500 text-xs">$</span>
+                    <input type="number" class="w-full pl-6 p-1.5 border border-gray-300 rounded text-right text-sm row-precio bg-gray-100 text-gray-600" readonly value="0.00">
+                </td>
+                <td class="p-2 text-right font-medium text-gray-700 row-subtotal">$0.00</td>
+                <td class="p-2 text-center">
+                    <button type="button" onclick="removeDetalleRow(${rowId})" class="text-red-500 hover:text-red-700"><i data-lucide="trash" class="w-4 h-4"></i></button>
+                </td>`;
+            tbody.appendChild(tr);
+            lucide.createIcons();
+        }
+
+        function removeDetalleRow(rowId) {
+            document.getElementById(`row-${rowId}`)?.remove();
+            calcularTotalesFactura();
+        }
+
+        function seleccionarProducto(rowId) {
+            const row = document.getElementById(`row-${rowId}`);
+            const sel   = row.querySelector('.row-producto');
+            const opt   = sel.options[sel.selectedIndex];
+            row.querySelector('.row-precio').value = opt.value ? parseFloat(opt.dataset.precio).toFixed(2) : '0.00';
+            row.querySelector('.row-stock').innerText = opt.value ? opt.dataset.stock : '-';
+            row.querySelector('.row-cant').max = opt.value ? opt.dataset.stock : '';
+            calcularLinea(rowId);
+        }
+
+        function calcularLinea(rowId) {
+            const row = document.getElementById(`row-${rowId}`);
+            let cant  = parseInt(row.querySelector('.row-cant').value) || 0;
+            const maxStock = parseInt(row.querySelector('.row-cant').max);
+            if (maxStock && cant > maxStock) {
+                alert(`⚠ Stock insuficiente. Módulo B indica máximo disponible: ${maxStock}`);
+                cant = maxStock;
+                row.querySelector('.row-cant').value = cant;
+            }
+            const precio = parseFloat(row.querySelector('.row-precio').value) || 0;
+            row.querySelector('.row-subtotal').innerText = `$${(cant * precio).toFixed(2)}`;
+            calcularTotalesFactura();
+        }
+
+        function calcularTotalesFactura() {
+            let subtotal = 0;
+            document.querySelectorAll('#factura-detalles-tbody tr').forEach(row => {
+                const cant   = parseFloat(row.querySelector('.row-cant')?.value) || 0;
+                const precio = parseFloat(row.querySelector('.row-precio')?.value) || 0;
+                subtotal += cant * precio;
+            });
+
+            // Leer porcentaje desde la tarifa seleccionada (Módulo D)
+            const tarifaSel = document.getElementById('factura-tarifa-iva');
+            const opt = tarifaSel.options[tarifaSel.selectedIndex];
+            const pct = opt ? parseFloat(opt.dataset.porcentaje) || 0 : 0;
+            const iva   = subtotal * (pct / 100);
+            const total = subtotal + iva;
+
+            document.getElementById('factura-subtotal').innerText = `$${subtotal.toFixed(2)}`;
+            document.getElementById('factura-iva-label').innerText = `IVA (${pct}%):`;
+            document.getElementById('factura-iva').innerText       = `$${iva.toFixed(2)}`;
+            document.getElementById('factura-total').innerText     = `$${total.toFixed(2)}`;
+            return { subtotal, iva, total };
+        }
+
+        async function guardarFactura() {
+            const clienteId = document.getElementById('factura-cliente').value;
+            if (!clienteId) { alert('Seleccione un cliente.'); return; }
+
+            const tarifaId = parseInt(document.getElementById('factura-tarifa-iva').value);
+            if (!tarifaId) { alert('Seleccione una tarifa IVA.'); return; }
+
+            const detalles = [];
+            let valido = true;
+            document.querySelectorAll('#factura-detalles-tbody tr').forEach(row => {
+                const productId = row.querySelector('.row-producto')?.value;
+                const cant      = parseInt(row.querySelector('.row-cant')?.value) || 0;
+                const precio    = parseFloat(row.querySelector('.row-precio')?.value) || 0;
+                if (!productId || cant <= 0 || precio <= 0) { valido = false; return; }
+                detalles.push({ product_id: parseInt(productId), id_tarifa: tarifaId, cantidad: cant, precio_unitario: precio, descuento: 0 });
+            });
+
+            if (!valido || detalles.length === 0) {
+                alert('Complete todos los campos del detalle correctamente.');
+                return;
+            }
+
+            // Número de factura automático
+            const numero = 'FAC-' + String(Date.now()).slice(-6);
+            const payload = {
+                numero_factura: numero,
+                cliente_id:     parseInt(clienteId),
+                vendedor_id:    1, // valor por defecto; ajustar si hay selector de vendedor
+                detalles
+            };
+
+            try {
+                const res = await fetch(`${API_URL}/facturas`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    showMessage(`Factura ${numero} generada. Total: $${data.total?.toFixed(2) ?? '—'}. Stock actualizado en Módulo B.`);
+                    closeFacturaModal();
+                    renderFacturas();
+                } else {
+                    const err = await res.json();
+                    showMessage('Error al generar factura: ' + (err.detail || JSON.stringify(err)), 'error');
+                }
+            } catch {
+                showMessage('No se pudo conectar al servidor.', 'error');
+            }
+        }
+
+        // ─── Pagos ────────────────────────────────────────────────
+
+        async function renderFacturasPendientes() {
+            try {
+                const res = await fetch(`${API_URL}/facturas/pendientes`);
+                const pendientes = await res.json();
+                const container = document.getElementById('facturas-pendientes-list');
+                const empty     = document.getElementById('empty-pendientes');
+                container.innerHTML = '';
+                if (pendientes.length === 0) {
+                    empty.classList.remove('hidden');
+                    resetPagoForm();
+                } else {
+                    empty.classList.add('hidden');
+                    pendientes.forEach(f => {
+                        container.innerHTML += `
+                            <div class="bg-white border border-gray-200 rounded-lg p-3 flex justify-between items-center hover:border-blue-300 transition cursor-pointer"
+                                 onclick="seleccionarFacturaParaPago(${f.id}, '${f.numero_factura}', ${f.saldo})">
+                                <div>
+                                    <div class="font-medium text-blue-600">${f.numero_factura}</div>
+                                    <div class="text-sm text-gray-600">${f.cliente_nombre}</div>
+                                    <div class="text-xs text-gray-400">Monto total: $${parseFloat(f.total).toFixed(2)}</div>
+                                </div>
+                                <div class="text-right">
+                                    <div class="text-sm text-gray-500 mb-1">Saldo CxC</div>
+                                    <div class="font-bold text-red-600">$${parseFloat(f.saldo).toFixed(2)}</div>
+                                </div>
+                            </div>`;
+                    });
+                }
+            } catch (e) {
+                console.error(e);
+            }
+        }
+
+        function seleccionarFacturaParaPago(id, numero, saldo) {
+            document.getElementById('pago-factura-id').value       = id;
+            document.getElementById('pago-factura-display').value  = numero;
+            document.getElementById('pago-saldo-actual').value     = parseFloat(saldo).toFixed(2);
+            const m = document.getElementById('pago-monto');
+            m.disabled = false;
+            m.max      = saldo;
+            m.value    = parseFloat(saldo).toFixed(2);
+            document.getElementById('pago-metodo').disabled        = false;
+            document.getElementById('btn-submit-pago').disabled    = false;
+        }
+
+        function resetPagoForm() {
+            document.getElementById('pago-factura-id').value      = '';
+            document.getElementById('pago-factura-display').value = '';
+            document.getElementById('pago-saldo-actual').value    = '0.00';
+            const m = document.getElementById('pago-monto');
+            m.value = ''; m.disabled = true;
+            document.getElementById('pago-metodo').disabled       = true;
+            document.getElementById('btn-submit-pago').disabled   = true;
+        }
+
+        async function handlePagoSubmit(e) {
+            e.preventDefault();
+            const payload = {
+                factura_id:    parseInt(document.getElementById('pago-factura-id').value),
+                monto:         parseFloat(document.getElementById('pago-monto').value),
+                forma_pago_id: parseInt(document.getElementById('pago-metodo').value)
+            };
+            try {
+                const res = await fetch(`${API_URL}/pagos`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    showMessage(`Pago registrado. Saldo restante: $${data.saldo_restante.toFixed(2)}`);
+                    resetPagoForm();
+                    renderFacturasPendientes();
+                    renderFacturas();
+                } else {
+                    const err = await res.json();
+                    showMessage('Error: ' + (err.detail || 'No se pudo registrar.'), 'error');
+                }
+            } catch {
+                showMessage('No se pudo conectar al servidor.', 'error');
+            }
+        }
+
+        // ─── Inicialización ───────────────────────────────────────
+
+        window.onload = async () => {
+            await Promise.all([
+                cargarProductosModuloB(),
+                cargarFiltrosYListas()
+            ]);
+            renderClientes();
+        };
+    </script>
+</body>
+</html>
