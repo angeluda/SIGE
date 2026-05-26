@@ -108,7 +108,7 @@ CREATE TABLE detalle_factura (
     CONSTRAINT fk_detalle_producto FOREIGN KEY (product_id) REFERENCES modulo_b.productos(product_id) ON DELETE RESTRICT,
     CONSTRAINT fk_detalle_tarifa FOREIGN KEY (id_tarifa) REFERENCES modulo_d.tarifas_iva(id_tarifa) ON DELETE RESTRICT
 );
-CREATE INDEX idx_detalle_producto ON detalle_factura(id_producto);
+CREATE INDEX idx_detalle_producto ON detalle_factura(  product_id);
 CREATE INDEX idx_detalle_tarifa ON detalle_factura(id_tarifa);
 
 -- CUENTAS POR COBRAR Y PAGOS
@@ -166,7 +166,7 @@ INSERT INTO facturas (numero_factura, fecha_emision, total, cliente_id, vendedor
 
 -- Detalles de Factura
 -- Las tarifas IVA (1=0%, 2=5%, 3=15%) están alineadas al Módulo D
-INSERT INTO detalle_factura (factura_id, id_producto, id_tarifa, cantidad, precio_unitario, descuento) VALUES
+INSERT INTO detalle_factura (factura_id,   product_id, id_tarifa, cantidad, precio_unitario, descuento) VALUES
 -- Factura 1
 (1, 1, 3, 2, 75.00, 0.00),   -- Producto 1: Zapato Oxford 
 -- Factura 2
