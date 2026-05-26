@@ -166,7 +166,7 @@ INSERT INTO facturas (numero_factura, fecha_emision, total, cliente_id, vendedor
 
 -- Detalles de Factura
 -- Las tarifas IVA (1=0%, 2=5%, 3=15%) están alineadas al Módulo D
-INSERT INTO detalle_factura (factura_id,   product_id, id_tarifa, cantidad, precio_unitario, descuento) VALUES
+INSERT INTO detalle_factura (factura_id, product_id, id_tarifa, cantidad, precio_unitario, descuento) VALUES
 -- Factura 1
 (1, 1, 3, 2, 75.00, 0.00),   -- Producto 1: Zapato Oxford 
 -- Factura 2
@@ -177,22 +177,7 @@ INSERT INTO detalle_factura (factura_id,   product_id, id_tarifa, cantidad, prec
 -- Factura 4
 (4, 3, 3, 1, 75.00, 0.00),   -- Producto 3: Oxford Cafe
 -- Factura 5
-(5, 7, 3, 1, 90.00, 0.00),   -- Producto 7: Casual Dama
--- Más detalles aleatorios para cumplir requerimiento de volumen de datos:
-(1, 14, 2, 1, 30.00, 0.00),
-(2, 15, 2, 2, 30.00, 0.00),
-(3, 16, 2, 1, 45.00, 0.00),
-(4, 18, 2, 1, 85.00, 0.00),
-(5, 19, 3, 1, 95.00, 0.00),
-(1, 20, 3, 1, 95.00, 0.00),
-(2, 11, 3, 1, 160.00, 0.00),
-(3, 12, 3, 1, 115.00, 0.00),
-(4, 13, 3, 1, 115.00, 0.00),
-(5, 4, 3, 1, 65.00, 0.00),
-(1, 5, 3, 1, 65.00, 0.00),
-(2, 9, 3, 1, 130.00, 0.00),
-(3, 17, 3, 1, 100.00, 0.00),
-(4, 2, 3, 1, 75.00, 0.00);
+(5, 7, 3, 1, 90.00, 0.00);   -- Producto 7: Casual Dama
 
 -- Cuentas por Cobrar
 INSERT INTO cuentas_por_cobrar (factura_id, fecha_vencimiento, saldo_pendiente, estado_id) VALUES
