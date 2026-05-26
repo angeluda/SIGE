@@ -15,10 +15,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# ==========================================
-# 1. MODELOS DE DATOS (DTOs)
-# ==========================================
-
 class Cliente(BaseModel):
     tipo_cliente_id: int
     identificacion: str
@@ -50,12 +46,6 @@ class Pago(BaseModel):
     monto: float
     forma_pago_id: int
 
-
-# ==========================================
-# 2. PATRONES DE DISEÑO SEGÚN INFORME
-# ==========================================
-
-# --- PATRÓN SINGLETON: Manejo de conexión ---
 class DatabaseConnection:
     _instancia = None
 
@@ -74,11 +64,10 @@ class DatabaseConnection:
         return mysql.connector.connect(
             host="localhost",
             user="root",
-            password="Eimi@12345",  # <-- Asegúrate de poner tu contraseña de MySQL aquí si tienes una
-            database="modulo_a"
+            password="",
+            database="sige"
         )
 
-# --- PATRÓN FACTORY METHOD: Creación de Comprobantes ---
 class ComprobanteFactory:
     def crear_comprobante(self, dto, cursor):
         pass
@@ -88,7 +77,6 @@ class FacturaFactory(ComprobanteFactory):
         total = 0.0
         for d in dto.detalles:
             subtotal = (d.precio_unitario * d.cantidad) - d.descuento
-            # Consultar IVA dinámicamente desde Módulo D
             cursor.execute("SELECT porcentaje FROM modulo_d.tarifas_iva WHERE id_tarifa = %s", (d.id_tarifa,))
             row = cursor.fetchone()
             porc = float(row[0])/100 if row else 0.15
@@ -108,14 +96,13 @@ class NotaCreditoFactory(ComprobanteFactory):
         )
         return cursor.lastrowid, 0.0
 
-# --- PATRÓN OBSERVER: Alertas de Vencimiento ---
 class Observador:
     def update(self, cuenta_id, factura_id, dias_vencidos):
         pass
 
 class NotificadorVencimiento(Observador):
     def update(self, cuenta_id, factura_id, dias_vencidos):
-        print(f"ALERTA: La cuenta {cuenta_id} de la factura {factura_id} está vencida por {dias_vencidos} días.")
+        print("ALERTA: La cuenta " + str(cuenta_id) + " de la factura " + str(factura_id) + " esta vencida por " + str(dias_vencidos) + " dias.")
 
 class VerificadorVencimientos:
     def __init__(self):
@@ -133,7 +120,6 @@ class VerificadorVencimientos:
         for v in vencidas:
             for obs in self._observadores:
                 obs.update(v['id'], v['factura_id'], v['dias'])
-            # Actualizar estado a EN_MORA (2)
             cursor.execute("UPDATE cuentas_por_cobrar SET estado_id = 2 WHERE id = %s", (v['id'],))
         conn.commit()
         cursor.close()
@@ -142,29 +128,12 @@ class VerificadorVencimientos:
 verificador = VerificadorVencimientos()
 verificador.attach(NotificadorVencimiento())
 
-
-# ==========================================
-# 3. ENDPOINTS DE INTEGRACIÓN (Módulos B y D)
-# ==========================================
-
 @app.get("/api/productos")
 def get_productos():
     db = DatabaseConnection.getInstancia()
     conn = db.connect()
     cursor = conn.cursor(dictionary=True)
-    cursor.execute("""
-        SELECT product_id        AS id,
-               descripcion       AS nombre,
-               precio_venta,
-               stock_actual      AS stock,
-               stock_minimo,
-               marca,
-               talla,
-               color
-        FROM modulo_b.productos
-        WHERE estado = 'ACTIVO'
-        ORDER BY descripcion
-    """)
+    cursor.execute("SELECT product_id AS id, descripcion AS nombre, precio_venta, stock_actual AS stock, stock_minimo, marca, talla, color FROM modulo_b.productos WHERE estado = 'ACTIVO' ORDER BY descripcion")
     productos = cursor.fetchall()
     cursor.close()
     conn.close()
@@ -175,13 +144,7 @@ def get_tarifas_iva():
     db = DatabaseConnection.getInstancia()
     conn = db.connect()
     cursor = conn.cursor(dictionary=True)
-    cursor.execute("""
-        SELECT id_tarifa, codigo, porcentaje, descripcion
-        FROM modulo_d.tarifas_iva
-        WHERE activo = 1
-          AND (fecha_vigencia_hasta IS NULL OR fecha_vigencia_hasta >= CURDATE())
-        ORDER BY porcentaje
-    """)
+    cursor.execute("SELECT id_tarifa, codigo, porcentaje, descripcion FROM modulo_d.tarifas_iva WHERE activo = 1 AND (fecha_vigencia_hasta IS NULL OR fecha_vigencia_hasta >= CURDATE()) ORDER BY porcentaje")
     tarifas = cursor.fetchall()
     cursor.close()
     conn.close()
@@ -192,39 +155,40 @@ def get_iva_default():
     db = DatabaseConnection.getInstancia()
     conn = db.connect()
     cursor = conn.cursor()
-    cursor.execute("""
-        SELECT porcentaje FROM modulo_d.tarifas_iva
-        WHERE activo = 1
-          AND (fecha_vigencia_hasta IS NULL OR fecha_vigencia_hasta >= CURDATE())
-        ORDER BY porcentaje DESC
-        LIMIT 1
-    """)
+    cursor.execute("SELECT porcentaje FROM modulo_d.tarifas_iva WHERE activo = 1 AND (fecha_vigencia_hasta IS NULL OR fecha_vigencia_hasta >= CURDATE()) ORDER BY porcentaje DESC LIMIT 1")
     row = cursor.fetchone()
     cursor.close()
     conn.close()
     return {"iva": float(row[0]) / 100 if row else 0.15}
 
+@app.get("/api/vendedores")
+def get_vendedores():
+    db = DatabaseConnection.getInstancia()
+    conn = db.connect()
+    cursor = conn.cursor(dictionary=True)
+    cursor.execute("SELECT id, CONCAT(nombres, ' ', apellidos) as nombre FROM vendedores WHERE estado = 'ACTIVO'")
+    vendedores = cursor.fetchall()
+    cursor.close()
+    conn.close()
+    return vendedores
 
-# ==========================================
-# 4. ENDPOINTS MÓDULO A (Clientes, Facturas, Pagos)
-# ==========================================
+@app.get("/api/formas-pago")
+def get_formas_pago():
+    db = DatabaseConnection.getInstancia()
+    conn = db.connect()
+    cursor = conn.cursor(dictionary=True)
+    cursor.execute("SELECT id, nombre FROM cat_formas_pago ORDER BY id")
+    formas = cursor.fetchall()
+    cursor.close()
+    conn.close()
+    return formas
 
 @app.get("/api/clientes")
 def get_clientes():
     db = DatabaseConnection.getInstancia()
     conn = db.connect()
     cursor = conn.cursor(dictionary=True)
-    cursor.execute("""
-        SELECT c.id,
-            COALESCE(pn.cedula, pj.ruc) AS identificacion,
-            COALESCE(CONCAT(pn.nombres, ' ', pn.apellidos), pj.razon_social) AS nombre,
-            c.correo_electronico AS email,
-            c.direccion
-        FROM clientes c
-        LEFT JOIN personas_naturales pn ON c.id = pn.cliente_id
-        LEFT JOIN personas_juridicas pj ON c.id = pj.cliente_id
-        WHERE c.estado = 'ACTIVO'
-    """)
+    cursor.execute("SELECT c.id, c.tipo_cliente_id, COALESCE(pn.cedula, pj.ruc) AS identificacion, COALESCE(CONCAT(pn.nombres, ' ', pn.apellidos), pj.razon_social) AS nombre, c.correo_electronico AS email, c.direccion FROM clientes c LEFT JOIN personas_naturales pn ON c.id = pn.cliente_id LEFT JOIN personas_juridicas pj ON c.id = pj.cliente_id WHERE c.estado = 'ACTIVO'")
     clientes = cursor.fetchall()
     cursor.close()
     conn.close()
@@ -236,28 +200,58 @@ def create_cliente(cliente: Cliente):
     conn = db.connect()
     cursor = conn.cursor()
     try:
-        cursor.execute(
-            "INSERT INTO clientes (tipo_cliente_id, direccion, correo_electronico, dias_credito) VALUES (%s, %s, %s, 0)",
-            (cliente.tipo_cliente_id, cliente.direccion, cliente.email)
-        )
+        cursor.execute("INSERT INTO clientes (tipo_cliente_id, direccion, correo_electronico, dias_credito) VALUES (%s, %s, %s, 0)", (cliente.tipo_cliente_id, cliente.direccion, cliente.email))
         cliente_id = cursor.lastrowid
-
         if cliente.tipo_cliente_id == 1:
             partes = cliente.nombre.strip().split(' ', 1)
             nombres = partes[0]
             apellidos = partes[1] if len(partes) > 1 else ''
-            cursor.execute(
-                "INSERT INTO personas_naturales (cliente_id, cedula, nombres, apellidos) VALUES (%s, %s, %s, %s)",
-                (cliente_id, cliente.identificacion, nombres, apellidos)
-            )
+            cursor.execute("INSERT INTO personas_naturales (cliente_id, cedula, nombres, apellidos) VALUES (%s, %s, %s, %s)", (cliente_id, cliente.identificacion, nombres, apellidos))
         else:
-            cursor.execute(
-                "INSERT INTO personas_juridicas (cliente_id, ruc, razon_social) VALUES (%s, %s, %s)",
-                (cliente_id, cliente.identificacion, cliente.nombre)
-            )
-
+            cursor.execute("INSERT INTO personas_juridicas (cliente_id, ruc, razon_social) VALUES (%s, %s, %s)", (cliente_id, cliente.identificacion, cliente.nombre))
         conn.commit()
         return {"success": True, "id": cliente_id}
+    except Exception as e:
+        conn.rollback()
+        raise HTTPException(status_code=400, detail=str(e))
+    finally:
+        cursor.close()
+        conn.close()
+
+@app.put("/api/clientes/{cliente_id}")
+def update_cliente(cliente_id: int, cliente: Cliente):
+    db = DatabaseConnection.getInstancia()
+    conn = db.connect()
+    cursor = conn.cursor()
+    try:
+        cursor.execute("UPDATE clientes SET direccion = %s, correo_electronico = %s, tipo_cliente_id = %s WHERE id = %s", (cliente.direccion, cliente.email, cliente.tipo_cliente_id, cliente_id))
+        
+        if cliente.tipo_cliente_id == 1:
+            partes = cliente.nombre.strip().split(' ', 1)
+            nombres = partes[0]
+            apellidos = partes[1] if len(partes) > 1 else ''
+            cursor.execute("UPDATE personas_naturales SET cedula = %s, nombres = %s, apellidos = %s WHERE cliente_id = %s", (cliente.identificacion, nombres, apellidos, cliente_id))
+        else:
+            cursor.execute("UPDATE personas_juridicas SET ruc = %s, razon_social = %s WHERE cliente_id = %s", (cliente.identificacion, cliente.nombre, cliente_id))
+            
+        conn.commit()
+        return {"success": True}
+    except Exception as e:
+        conn.rollback()
+        raise HTTPException(status_code=400, detail=str(e))
+    finally:
+        cursor.close()
+        conn.close()
+
+@app.delete("/api/clientes/{cliente_id}")
+def delete_cliente(cliente_id: int):
+    db = DatabaseConnection.getInstancia()
+    conn = db.connect()
+    cursor = conn.cursor()
+    try:
+        cursor.execute("UPDATE clientes SET estado = 'INACTIVO' WHERE id = %s", (cliente_id,))
+        conn.commit()
+        return {"success": True}
     except Exception as e:
         conn.rollback()
         raise HTTPException(status_code=400, detail=str(e))
@@ -270,17 +264,7 @@ def get_facturas():
     db = DatabaseConnection.getInstancia()
     conn = db.connect()
     cursor = conn.cursor(dictionary=True)
-    cursor.execute("""
-        SELECT f.id, f.numero_factura,
-               DATE_FORMAT(f.fecha_emision, '%Y-%m-%d') AS fecha,
-               f.total, f.cliente_id, ef.nombre AS estado,
-               COALESCE(CONCAT(pn.nombres, ' ', pn.apellidos), pj.razon_social) AS cliente_nombre
-        FROM facturas f
-        JOIN cat_estados_facturas ef ON f.estado_id = ef.id
-        LEFT JOIN personas_naturales pn ON f.cliente_id = pn.cliente_id
-        LEFT JOIN personas_juridicas pj ON f.cliente_id = pj.cliente_id
-        ORDER BY f.id DESC
-    """)
+    cursor.execute("SELECT f.id, f.numero_factura, DATE_FORMAT(f.fecha_emision, '%Y-%m-%d') AS fecha, f.total, f.cliente_id, ef.nombre AS estado, COALESCE(CONCAT(pn.nombres, ' ', pn.apellidos), pj.razon_social) AS cliente_nombre FROM facturas f JOIN cat_estados_facturas ef ON f.estado_id = ef.id LEFT JOIN personas_naturales pn ON f.cliente_id = pn.cliente_id LEFT JOIN personas_juridicas pj ON f.cliente_id = pj.cliente_id ORDER BY f.id DESC")
     facturas = cursor.fetchall()
     cursor.close()
     conn.close()
@@ -296,21 +280,14 @@ def emitir_factura(dto: DatosFacturaDTO):
         factura_id, total = factory.crear_comprobante(dto, cursor)
         
         for d in dto.detalles:
-            cursor.execute(
-                "INSERT INTO detalle_factura (factura_id, product_id, id_tarifa, cantidad, precio_unitario, descuento) VALUES (%s, %s, %s, %s, %s, %s)",
-                (factura_id, d.product_id, d.id_tarifa, d.cantidad, d.precio_unitario, d.descuento)
-            )
-            # Llamado al procedimiento del Módulo B para descontar inventario
+            cursor.execute("INSERT INTO detalle_factura (factura_id, product_id, id_tarifa, cantidad, precio_unitario, descuento) VALUES (%s, %s, %s, %s, %s, %s)", (factura_id, d.product_id, d.id_tarifa, d.cantidad, d.precio_unitario, d.descuento))
             cursor.callproc("modulo_b.sp_registrar_salida_inventario", [d.product_id, 1, d.cantidad, dto.numero_factura])
 
-        # Crear cuenta por cobrar
         cursor.execute("SELECT dias_credito FROM clientes WHERE id = %s", (dto.cliente_id,))
         row = cursor.fetchone()
         dias = row[0] if row else 0
-        cursor.execute(
-            "INSERT INTO cuentas_por_cobrar (factura_id, fecha_vencimiento, saldo_pendiente, estado_id) VALUES (%s, DATE_ADD(CURDATE(), INTERVAL %s DAY), %s, 1)",
-            (factura_id, dias, total)
-        )
+        if dias > 0:
+            cursor.execute("INSERT INTO cuentas_por_cobrar (factura_id, fecha_vencimiento, saldo_pendiente, estado_id) VALUES (%s, DATE_ADD(CURDATE(), INTERVAL %s DAY), %s, 1)", (factura_id, dias, total))
         
         conn.commit()
         return {"success": True, "factura_id": factura_id}
@@ -343,17 +320,7 @@ def get_facturas_pendientes():
     db = DatabaseConnection.getInstancia()
     conn = db.connect()
     cursor = conn.cursor(dictionary=True)
-    cursor.execute("""
-        SELECT f.id, f.numero_factura,
-               COALESCE(CONCAT(pn.nombres, ' ', pn.apellidos), pj.razon_social) AS cliente_nombre,
-               f.total,
-               cxc.saldo_pendiente AS saldo
-        FROM cuentas_por_cobrar cxc
-        JOIN facturas f ON cxc.factura_id = f.id
-        LEFT JOIN personas_naturales pn ON f.cliente_id = pn.cliente_id
-        LEFT JOIN personas_juridicas pj ON f.cliente_id = pj.cliente_id
-        WHERE cxc.estado_id IN (1, 2)
-    """)
+    cursor.execute("SELECT f.id, f.numero_factura, COALESCE(CONCAT(pn.nombres, ' ', pn.apellidos), pj.razon_social) AS cliente_nombre, f.total, cxc.saldo_pendiente AS saldo FROM cuentas_por_cobrar cxc JOIN facturas f ON cxc.factura_id = f.id LEFT JOIN personas_naturales pn ON f.cliente_id = pn.cliente_id LEFT JOIN personas_juridicas pj ON f.cliente_id = pj.cliente_id WHERE cxc.estado_id IN (1, 2)")
     pendientes = cursor.fetchall()
     cursor.close()
     conn.close()
@@ -365,40 +332,25 @@ def registrar_pago(pago: Pago):
     conn = db.connect()
     cursor = conn.cursor()
     try:
-        # 1. Obtener la cuenta por cobrar
-        cursor.execute(
-            "SELECT id, factura_id, saldo_pendiente FROM cuentas_por_cobrar WHERE factura_id = %s AND estado_id IN (1,2)",
-            (pago.factura_id,)
-        )
+        cursor.execute("SELECT id, factura_id, saldo_pendiente FROM cuentas_por_cobrar WHERE factura_id = %s AND estado_id IN (1,2)", (pago.factura_id,))
         row = cursor.fetchone()
         if not row:
-            raise HTTPException(status_code=404, detail="No existe cuenta por cobrar activa.")
+            raise HTTPException(status_code=404, detail="No existe cuenta activa")
         
         cxc_id, factura_id, saldo = row
         nuevo_saldo = float(saldo) - pago.monto
         
         if nuevo_saldo < 0:
-            raise HTTPException(status_code=400, detail="El monto excede el saldo pendiente.")
+            raise HTTPException(status_code=400, detail="Monto excede saldo")
             
-        # 2. LÓGICA DE CIERRE: Si el saldo es 0, marcamos como cancelado/pagado (id 3)
-        # Ajusta estos IDs según tu DDL (cat_estados_cxc)
         estado_id = 3 if nuevo_saldo <= 0 else 1 
         
-        # Actualizar cuenta por cobrar
-        cursor.execute(
-            "UPDATE cuentas_por_cobrar SET saldo_pendiente = %s, estado_id = %s WHERE id = %s",
-            (nuevo_saldo, estado_id, cxc_id)
-        )
+        cursor.execute("UPDATE cuentas_por_cobrar SET saldo_pendiente = %s, estado_id = %s WHERE id = %s", (nuevo_saldo, estado_id, cxc_id))
         
-        # Actualizar factura principal
         if nuevo_saldo <= 0:
             cursor.execute("UPDATE facturas SET estado_id = 3 WHERE id = %s", (factura_id,))
         
-        # Registrar el pago
-        cursor.execute(
-            "INSERT INTO pagos_cliente (factura_id, monto, forma_pago_id) VALUES (%s, %s, %s)",
-            (pago.factura_id, pago.monto, pago.forma_pago_id)
-        )
+        cursor.execute("INSERT INTO pagos_cliente (factura_id, monto, forma_pago_id) VALUES (%s, %s, %s)", (pago.factura_id, pago.monto, pago.forma_pago_id))
         
         conn.commit()
         return {"success": True, "saldo_restante": nuevo_saldo}
@@ -409,29 +361,7 @@ def registrar_pago(pago: Pago):
         cursor.close()
         conn.close()
 
-@app.get("/api/vendedores")
-def get_vendedores():
-    db = DatabaseConnection.getInstancia()
-    conn = db.connect()
-    cursor = conn.cursor(dictionary=True)
-    cursor.execute("SELECT id, CONCAT(nombres, ' ', apellidos) as nombre FROM vendedores WHERE estado = 'ACTIVO'")
-    vendedores = cursor.fetchall()
-    cursor.close()
-    conn.close()
-    return vendedores
-
-@app.get("/api/formas-pago")
-def get_formas_pago():
-    db = DatabaseConnection.getInstancia()
-    conn = db.connect()
-    cursor = conn.cursor(dictionary=True)
-    cursor.execute("SELECT id, nombre FROM cat_formas_pago ORDER BY id")
-    formas = cursor.fetchall()
-    cursor.close()
-    conn.close()
-    return formas
-
 @app.get("/api/vencimientos/ejecutar")
 def ejecutar_verificacion_vencimientos():
     verificador.verificar()
-    return {"message": "Verificación terminada. Revisa la terminal para ver las alertas del patrón Observer."}
+    return {"message": "ok"}
