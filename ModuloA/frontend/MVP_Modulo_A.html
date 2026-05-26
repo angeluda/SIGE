@@ -697,16 +697,43 @@
 
         window.handlePagoSubmit = async function(e) {
             e.preventDefault();
-            const payload = { factura_id: parseInt(document.getElementById('pago-factura-id').value), monto: parseFloat(document.getElementById('pago-monto').value), forma_pago_id: parseInt(document.getElementById('pago-metodo').value) };
+            
+            const facId = document.getElementById('pago-factura-id').value;
+            const monto = document.getElementById('pago-monto').value;
+            const formaPago = document.getElementById('pago-metodo').value;
+
+            if (!formaPago) {
+                window.showMessage("Por favor seleccione un método de pago.", "error");
+                return;
+            }
+
+            const payload = { 
+                factura_id: parseInt(facId), 
+                monto: parseFloat(monto), 
+                forma_pago_id: parseInt(formaPago) 
+            };
+
             try {
-                const res = await fetch(`${API_URL}/pagos`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-                if(res.ok) {
-                    window.showMessage("Pago registrado.");
+                const res = await fetch(`${API_URL}/pagos`, { 
+                    method: 'POST', 
+                    headers: { 'Content-Type': 'application/json' }, 
+                    body: JSON.stringify(payload) 
+                });
+
+                if (res.ok) {
+                    const data = await res.json();
+                    window.showMessage(`Pago registrado. Saldo restante: $${data.saldo_restante.toFixed(2)}`);
                     window.resetPagoForm();
-                    window.renderFacturasPendientes();
-                    window.renderFacturas();
+                    await window.renderFacturasPendientes();
+                    await window.renderFacturas();
+                } else {
+                    const err = await res.json();
+                    window.showMessage("Error: " + (err.detail || "No se pudo registrar el pago"), "error");
                 }
-            } catch(e) {}
+            } catch (e) {
+                console.error(e);
+                window.showMessage("Error de conexión con el servidor.", "error");
+            }
         };
 
         window.ejecutarVerificacionVencimientos = async function() {
