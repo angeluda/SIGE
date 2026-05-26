@@ -286,8 +286,11 @@ def emitir_factura(dto: DatosFacturaDTO):
         cursor.execute("SELECT dias_credito FROM clientes WHERE id = %s", (dto.cliente_id,))
         row = cursor.fetchone()
         dias = row[0] if row else 0
-        if dias > 0:
-            cursor.execute("INSERT INTO cuentas_por_cobrar (factura_id, fecha_vencimiento, saldo_pendiente, estado_id) VALUES (%s, DATE_ADD(CURDATE(), INTERVAL %s DAY), %s, 1)", (factura_id, dias, total))
+        
+        cursor.execute(
+            "INSERT INTO cuentas_por_cobrar (factura_id, fecha_vencimiento, saldo_pendiente, estado_id) VALUES (%s, DATE_ADD(CURDATE(), INTERVAL %s DAY), %s, 1)",
+            (factura_id, dias, total)
+        )
         
         conn.commit()
         return {"success": True, "factura_id": factura_id}
@@ -338,22 +341,31 @@ def registrar_pago(pago: Pago):
             raise HTTPException(status_code=404, detail="No existe cuenta activa")
         
         cxc_id, factura_id, saldo = row
-        nuevo_saldo = float(saldo) - pago.monto
-        
-        if nuevo_saldo < 0:
+        from decimal import Decimal, ROUND_HALF_UP
+        saldo_dec = Decimal(str(saldo))
+        monto_dec = Decimal(str(pago.monto)).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+
+        if monto_dec > saldo_dec:
             raise HTTPException(status_code=400, detail="Monto excede saldo")
-            
-        estado_id = 3 if nuevo_saldo <= 0 else 1 
-        
-        cursor.execute("UPDATE cuentas_por_cobrar SET saldo_pendiente = %s, estado_id = %s WHERE id = %s", (nuevo_saldo, estado_id, cxc_id))
-        
-        if nuevo_saldo <= 0:
+
+        nuevo_saldo = round(float(saldo) - pago.monto, 2)
+
+        estado_id = 3 if nuevo_saldo <= 0 else 1
+        cursor.execute(
+            "UPDATE cuentas_por_cobrar SET saldo_pendiente = %s, estado_id = %s WHERE id = %s",
+            (str(nuevo_saldo), estado_id, cxc_id)
+        )
+
+        if nuevo_saldo == Decimal('0.00'):
             cursor.execute("UPDATE facturas SET estado_id = 3 WHERE id = %s", (factura_id,))
-        
-        cursor.execute("INSERT INTO pagos_cliente (factura_id, monto, forma_pago_id) VALUES (%s, %s, %s)", (pago.factura_id, pago.monto, pago.forma_pago_id))
-        
+
+        cursor.execute(
+            "INSERT INTO pagos_cliente (factura_id, monto, forma_pago_id) VALUES (%s, %s, %s)",
+            (pago.factura_id, str(monto_dec), pago.forma_pago_id)
+        )
+
         conn.commit()
-        return {"success": True, "saldo_restante": nuevo_saldo}
+        return {"success": True, "saldo_restante": float(nuevo_saldo)}
     except Exception as e:
         conn.rollback()
         raise HTTPException(status_code=400, detail=str(e))
