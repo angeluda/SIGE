@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SIGE - Módulo A: Facturación y Cuentas por Cobrar</title>
+    <title>SIGE - Modulo A</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
     <style>
@@ -20,9 +20,9 @@
             <div class="flex items-center justify-between h-16">
                 <div class="flex items-center gap-3">
                     <i data-lucide="calculator" class="w-8 h-8"></i>
-                    <span class="font-bold text-xl tracking-tight">SIGE | Módulo A</span>
+                    <span class="font-bold text-xl tracking-tight">SIGE | Modulo A</span>
                 </div>
-                <div class="text-sm text-blue-200">Facturación y Cuentas por Cobrar</div>
+                <div class="text-sm text-blue-200">Facturacion y Cuentas por Cobrar</div>
             </div>
         </div>
     </nav>
@@ -31,10 +31,10 @@
         
         <aside class="w-full md:w-64 flex flex-col gap-2">
             <button onclick="switchTab('clientes', this)" class="tab-btn flex items-center gap-3 px-4 py-3 rounded-lg bg-blue-100 text-blue-800 font-medium transition-colors">
-                <i data-lucide="users"></i> Gestión de Clientes
+                <i data-lucide="users"></i> Gestion de Clientes
             </button>
             <button onclick="switchTab('facturas', this)" class="tab-btn flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-gray-200 text-gray-600 transition-colors">
-                <i data-lucide="file-text"></i> Emisión de Facturas
+                <i data-lucide="file-text"></i> Emision de Facturas
             </button>
             <button onclick="switchTab('pagos', this)" class="tab-btn flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-gray-200 text-gray-600 transition-colors">
                 <i data-lucide="credit-card"></i> Registro de Pagos
@@ -47,7 +47,7 @@
 
             <section id="tab-clientes" class="tab-content active">
                 <div class="flex justify-between items-center mb-6">
-                    <h2 class="text-2xl font-semibold text-gray-800">Gestión de Clientes</h2>
+                    <h2 class="text-2xl font-semibold text-gray-800">Gestion de Clientes</h2>
                     <button onclick="openClienteModal()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition">
                         <i data-lucide="plus" class="w-4 h-4"></i> Nuevo Cliente
                     </button>
@@ -58,10 +58,10 @@
                         <thead>
                             <tr class="bg-gray-50 border-b border-gray-200 text-gray-600 text-sm">
                                 <th class="p-3">ID</th>
-                                <th class="p-3">Identificación</th>
+                                <th class="p-3">Identificacion</th>
                                 <th class="p-3">Nombre</th>
                                 <th class="p-3">Email</th>
-                                <th class="p-3 text-right">Dirección</th>
+                                <th class="p-3 text-right">Acciones</th>
                             </tr>
                         </thead>
                         <tbody id="clientes-tbody" class="divide-y divide-gray-100">
@@ -75,9 +75,9 @@
 
             <section id="tab-facturas" class="tab-content">
                 <div class="flex justify-between items-center mb-6">
-                    <h2 class="text-2xl font-semibold text-gray-800">Emisión de Facturas</h2>
+                    <h2 class="text-2xl font-semibold text-gray-800">Emision de Facturas</h2>
                     <div class="flex items-center gap-4">
-                        <select id="filtro-cliente-facturas" onchange="renderFacturas()" class="p-2 border border-gray-300 rounded text-sm bg-white focus:ring-blue-500 focus:border-blue-500">
+                        <select id="filtro-cliente-facturas" onchange="window.renderFacturas()" class="p-2 border border-gray-300 rounded text-sm bg-white focus:ring-blue-500 focus:border-blue-500">
                             <option value="">Todos los clientes</option>
                         </select>
                         <button onclick="openFacturaModal()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition">
@@ -101,7 +101,7 @@
                         </tbody>
                     </table>
                     <div id="empty-facturas" class="text-center py-8 text-gray-500 hidden">
-                        No se encontraron facturas para el criterio seleccionado.
+                        No se encontraron facturas.
                     </div>
                 </div>
             </section>
@@ -110,52 +110,52 @@
                 <div class="flex justify-between items-center mb-6">
                     <h2 class="text-2xl font-semibold text-gray-800">Cuentas por Cobrar y Pagos</h2>
                     <button onclick="ejecutarVerificacionVencimientos()" class="bg-yellow-500 hover:bg-yellow-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition text-sm">
-                        <i data-lucide="bell" class="w-4 h-4"></i> Forzar Verificación Vencimientos
+                        <i data-lucide="bell" class="w-4 h-4"></i> Verificar Vencimientos
                     </button>
                 </div>
                 
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
                     <div>
-                        <h3 class="text-lg font-medium text-gray-700 mb-3 border-b pb-2">Cuentas Pendientes (Saldos en BD)</h3>
+                        <h3 class="text-lg font-medium text-gray-700 mb-3 border-b pb-2">Saldos Pendientes</h3>
                         <div id="facturas-pendientes-list" class="space-y-3">
                         </div>
                         <div id="empty-pendientes" class="text-center py-6 text-gray-500 text-sm hidden">
-                            No hay cuentas pendientes de cobro en la base de datos.
+                            No hay cuentas pendientes.
                         </div>
                     </div>
 
                     <div class="bg-gray-50 p-5 rounded-lg border border-gray-200">
-                        <h3 class="text-lg font-medium text-gray-700 mb-4 border-b pb-2">Registrar Nuevo Pago</h3>
+                        <h3 class="text-lg font-medium text-gray-700 mb-4 border-b pb-2">Registrar Pago</h3>
                         <form id="form-pago" onsubmit="handlePagoSubmit(event)">
                             <div class="mb-4">
                                 <label class="block text-sm font-medium text-gray-700 mb-1">Factura Seleccionada</label>
-                                <input type="text" id="pago-factura-display" class="w-full p-2 border border-gray-300 rounded bg-gray-100 text-gray-500" readonly placeholder="Seleccione una cuenta de la lista">
+                                <input type="text" id="pago-factura-display" class="w-full p-2 border border-gray-300 rounded bg-gray-100 text-gray-500" readonly>
                                 <input type="hidden" id="pago-factura-id">
                             </div>
                             <div class="grid grid-cols-2 gap-4 mb-4">
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">Saldo Pendiente</label>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">Saldo Actual</label>
                                     <div class="relative">
                                         <span class="absolute left-3 top-2 text-gray-500">$</span>
                                         <input type="text" id="pago-saldo-actual" class="w-full pl-7 p-2 border border-gray-300 rounded bg-gray-100 text-gray-500" readonly value="0.00">
                                     </div>
                                 </div>
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">Monto a Pagar</label>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">Monto Pagar</label>
                                     <div class="relative">
                                         <span class="absolute left-3 top-2 text-gray-500">$</span>
-                                        <input type="number" id="pago-monto" step="0.01" min="0.01" class="w-full pl-7 p-2 border border-gray-300 rounded focus:ring-blue-500 focus:border-blue-500" required disabled>
+                                        <input type="number" id="pago-monto" step="0.01" min="0.01" class="w-full pl-7 p-2 border border-gray-300 rounded" required disabled>
                                     </div>
                                 </div>
                             </div>
                             <div class="mb-5">
-                                <label class="block text-sm font-medium text-gray-700 mb-1">Método de Pago</label>
-                                <select id="pago-metodo" class="w-full p-2 border border-gray-300 rounded focus:ring-blue-500 focus:border-blue-500" disabled>
-                                    <option value="">Cargando opciones...</option>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Metodo Pago</label>
+                                <select id="pago-metodo" class="w-full p-2 border border-gray-300 rounded" disabled>
+                                    <option value="">Cargando...</option>
                                 </select>
                             </div>
-                            <button type="submit" id="btn-submit-pago" class="w-full bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-4 rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed" disabled>
-                                Registrar Pago
+                            <button type="submit" id="btn-submit-pago" class="w-full bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-4 rounded-lg" disabled>
+                                Confirmar Pago
                             </button>
                         </form>
                     </div>
@@ -168,38 +168,39 @@
     <div id="modal-cliente" class="fixed inset-0 modal-bg hidden z-50 flex items-center justify-center">
         <div class="bg-white rounded-xl shadow-xl w-full max-w-md mx-4 overflow-hidden">
             <div class="bg-gray-50 px-6 py-4 border-b border-gray-200 flex justify-between items-center">
-                <h3 class="text-lg font-semibold text-gray-800">Nuevo Cliente</h3>
-                <button onclick="closeClienteModal()" class="text-gray-400 hover:text-gray-600"><i data-lucide="x" class="w-5 h-5"></i></button>
+                <h3 class="text-lg font-semibold text-gray-800" id="titulo-modal-cliente">Cliente</h3>
+                <button type="button" onclick="closeClienteModal()" class="text-gray-400 hover:text-gray-600"><i data-lucide="x" class="w-5 h-5"></i></button>
             </div>
             <form id="form-cliente" onsubmit="handleClienteSubmit(event)" class="p-6">
+                <input type="hidden" id="cliente-id-edit" value="">
                 <div class="space-y-4">
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Tipo Cliente</label>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Tipo</label>
                         <select id="cliente-tipo" class="w-full p-2 border border-gray-300 rounded">
                             <option value="1">Natural</option>
-                            <option value="2">Jurídica</option>
+                            <option value="2">Juridica</option>
                         </select>
                     </div>
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Identificación (Cédula/RUC) *</label>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Identificacion</label>
                         <input type="text" id="cliente-identificacion" required class="w-full p-2 border border-gray-300 rounded">
                     </div>
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Nombre Completo / Razón Social *</label>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Nombre</label>
                         <input type="text" id="cliente-nombre" required class="w-full p-2 border border-gray-300 rounded">
                     </div>
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Correo Electrónico *</label>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Correo</label>
                         <input type="email" id="cliente-email" required class="w-full p-2 border border-gray-300 rounded">
                     </div>
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Dirección *</label>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Direccion</label>
                         <input type="text" id="cliente-direccion" required class="w-full p-2 border border-gray-300 rounded">
                     </div>
                 </div>
                 <div class="mt-6 flex justify-end gap-3">
-                    <button type="button" onclick="closeClienteModal()" class="px-4 py-2 text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg">Cancelar</button>
-                    <button type="submit" class="px-4 py-2 text-white bg-blue-600 hover:bg-blue-700 rounded-lg">Guardar en BD</button>
+                    <button type="button" onclick="closeClienteModal()" class="px-4 py-2 text-gray-600 bg-gray-100 rounded-lg">Cancelar</button>
+                    <button type="submit" class="px-4 py-2 text-white bg-blue-600 rounded-lg">Guardar</button>
                 </div>
             </form>
         </div>
@@ -208,22 +209,22 @@
     <div id="modal-factura" class="fixed inset-0 modal-bg hidden z-50 flex items-center justify-center">
         <div class="bg-white rounded-xl shadow-xl w-full max-w-4xl mx-4 overflow-hidden flex flex-col max-h-[90vh]">
             <div class="bg-gray-50 px-6 py-4 border-b border-gray-200 flex justify-between items-center shrink-0">
-                <h3 class="text-lg font-semibold text-gray-800">Emitir Nueva Factura</h3>
-                <button onclick="closeFacturaModal()" class="text-gray-400 hover:text-gray-600"><i data-lucide="x" class="w-5 h-5"></i></button>
+                <h3 class="text-lg font-semibold text-gray-800">Emitir Factura</h3>
+                <button type="button" onclick="closeFacturaModal()" class="text-gray-400"><i data-lucide="x" class="w-5 h-5"></i></button>
             </div>
             <div class="p-6 overflow-y-auto grow">
                 <div class="grid grid-cols-2 gap-6 mb-6">
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Cliente *</label>
-                        <select id="factura-cliente" class="w-full p-2 border border-gray-300 rounded focus:ring-blue-500 focus:border-blue-500" required></select>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Cliente</label>
+                        <select id="factura-cliente" class="w-full p-2 border border-gray-300 rounded" required></select>
                     </div>
                     <div class="grid grid-cols-2 gap-4">
                          <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Número Factura *</label>
-                            <input type="text" id="factura-numero" class="w-full p-2 border border-gray-300 rounded" placeholder="Ej: 001-001-000000001" required>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Numero</label>
+                            <input type="text" id="factura-numero" class="w-full p-2 border border-gray-300 rounded" required>
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Fecha Emisión</label>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Fecha</label>
                             <input type="date" id="factura-fecha" class="w-full p-2 border border-gray-300 rounded bg-gray-100" readonly>
                         </div>
                     </div>
@@ -231,33 +232,27 @@
 
                 <div class="mb-4 text-sm bg-blue-50 text-blue-800 p-3 rounded flex justify-between items-center">
                      <span>
-                        <strong>Vendedor:</strong> 
-                        <select id="factura-vendedor" class="bg-transparent border-b border-blue-300 font-medium ml-2 outline-none">
-                            <option value="">Cargando vendedores...</option>
-                        </select>
+                        <strong>Vendedor:</strong> <select id="factura-vendedor" class="bg-transparent border-b border-blue-300 outline-none"></select>
                      </span>
                      <span>
-                        <strong>Tarifa IVA:</strong> 
-                        <select id="factura-tarifa-iva" class="bg-transparent border-b border-blue-300 font-medium ml-2 outline-none" onchange="window.calcularTotalesFactura()">
-                        </select>
+                        <strong>IVA:</strong> 
+                        <select id="factura-tarifa-iva" class="bg-transparent border-b border-blue-300 outline-none" onchange="window.calcularTotalesFactura()"></select>
                      </span>
                 </div>
 
                 <div class="border-t border-gray-200 pt-4 mb-4">
                     <h4 class="font-medium text-gray-700 mb-3 flex items-center justify-between">
-                        Detalle de Factura (Productos Módulo B)
-                        <button type="button" onclick="addDetalleRow()" class="text-sm bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-1 rounded border border-gray-300 flex items-center gap-1">
-                            <i data-lucide="plus" class="w-3 h-3"></i> Agregar Línea
-                        </button>
+                        Detalle
+                        <button type="button" onclick="addDetalleRow()" class="text-sm bg-gray-100 border px-3 py-1 rounded">Agregar</button>
                     </h4>
                     
                     <table class="w-full text-sm text-left mb-4">
-                        <thead class="bg-gray-50 text-gray-600 border-b">
+                        <thead class="bg-gray-50 border-b">
                             <tr>
                                 <th class="p-2 w-2/5">Producto</th>
                                 <th class="p-2 w-1/6 text-center">Stock</th>
                                 <th class="p-2 w-1/6 text-center">Cant.</th>
-                                <th class="p-2 w-1/6 text-right">P. Unit</th>
+                                <th class="p-2 w-1/6 text-right">Precio</th>
                                 <th class="p-2 w-1/6 text-right">Subtotal</th>
                                 <th class="p-2 w-10"></th>
                             </tr>
@@ -269,26 +264,24 @@
 
                 <div class="flex justify-end border-t border-gray-200 pt-4">
                     <div class="w-64 space-y-2">
-                        <div class="flex justify-between text-sm text-gray-600">
+                        <div class="flex justify-between text-sm">
                             <span>Subtotal:</span>
                             <span id="factura-subtotal">$0.00</span>
                         </div>
-                        <div class="flex justify-between text-sm text-gray-600">
-                            <span id="label-iva-calculado">IVA (0%):</span>
+                        <div class="flex justify-between text-sm">
+                            <span id="label-iva-calculado">IVA:</span>
                             <span id="factura-iva">$0.00</span>
                         </div>
-                        <div class="flex justify-between font-bold text-lg text-gray-800 pt-2 border-t border-gray-200">
+                        <div class="flex justify-between font-bold text-lg pt-2 border-t">
                             <span>Total:</span>
                             <span id="factura-total">$0.00</span>
                         </div>
                     </div>
                 </div>
             </div>
-            <div class="bg-gray-50 px-6 py-4 border-t border-gray-200 flex justify-end gap-3 shrink-0">
-                <button type="button" onclick="closeFacturaModal()" class="px-4 py-2 text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg">Cancelar</button>
-                <button type="button" onclick="guardarFactura()" class="px-4 py-2 text-white bg-blue-600 hover:bg-blue-700 rounded-lg flex items-center gap-2">
-                    <i data-lucide="save" class="w-4 h-4"></i> Guardar y Procesar
-                </button>
+            <div class="bg-gray-50 px-6 py-4 border-t flex justify-end gap-3 shrink-0">
+                <button type="button" onclick="closeFacturaModal()" class="px-4 py-2 bg-gray-100 rounded-lg">Cancelar</button>
+                <button type="button" onclick="guardarFactura()" class="px-4 py-2 text-white bg-blue-600 rounded-lg">Guardar</button>
             </div>
         </div>
     </div>
@@ -300,18 +293,15 @@
         let productosModuloB = [];
         let tarifasIvaModuloD = [];
 
-        // 1. UTILIDADES UI
         window.switchTab = function(tabId, btnElement) {
             document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
             document.getElementById(`tab-${tabId}`).classList.add('active');
-            
             document.querySelectorAll('.tab-btn').forEach(btn => {
                 btn.classList.remove('bg-blue-100', 'text-blue-800', 'font-medium');
                 btn.classList.add('hover:bg-gray-200', 'text-gray-600');
             });
             btnElement.classList.add('bg-blue-100', 'text-blue-800', 'font-medium');
             btnElement.classList.remove('hover:bg-gray-200', 'text-gray-600');
-
             if(tabId === 'clientes') window.renderClientes();
             if(tabId === 'facturas') window.renderFacturas();
             if(tabId === 'pagos') window.renderFacturasPendientes();
@@ -321,49 +311,74 @@
             const container = document.getElementById('alert-container');
             const bgClass = type === 'success' ? 'bg-green-100 text-green-800 border-green-200' : 'bg-red-100 text-red-800 border-red-200';
             container.className = `mb-4 p-4 rounded-lg border ${bgClass} block`;
-            container.innerHTML = `<div class="flex items-center gap-2"><i data-lucide="${type==='success'?'check-circle':'alert-circle'}"></i> ${msg}</div>`;
-            lucide.createIcons();
+            container.innerHTML = `<div class="flex items-center gap-2"> ${msg}</div>`;
             setTimeout(() => { container.classList.add('hidden'); }, 5000);
         };
 
-        // 2. MODALES
         window.openClienteModal = function() {
             document.getElementById('modal-cliente').classList.remove('hidden');
             document.getElementById('form-cliente').reset();
+            document.getElementById('cliente-id-edit').value = '';
+            document.getElementById('titulo-modal-cliente').innerText = 'Nuevo Cliente';
         };
+
         window.closeClienteModal = function() {
             document.getElementById('modal-cliente').classList.add('hidden');
         };
 
+        window.editarCliente = function(id) {
+            const cliente = listaClientesGlobal.find(c => c.id === id);
+            if(!cliente) return;
+            document.getElementById('cliente-id-edit').value = cliente.id;
+            document.getElementById('cliente-tipo').value = cliente.tipo_cliente_id;
+            document.getElementById('cliente-identificacion').value = cliente.identificacion;
+            document.getElementById('cliente-nombre').value = cliente.nombre;
+            document.getElementById('cliente-email').value = cliente.email;
+            document.getElementById('cliente-direccion').value = cliente.direccion;
+            document.getElementById('titulo-modal-cliente').innerText = 'Editar Cliente';
+            document.getElementById('modal-cliente').classList.remove('hidden');
+        };
+
+        window.eliminarCliente = async function(id) {
+            try {
+                const res = await fetch(`${API_URL}/clientes/${id}`, { method: 'DELETE' });
+                if(res.ok) {
+                    window.showMessage("Cliente eliminado.");
+                    await window.cargarFiltrosYListas();
+                    window.renderClientes();
+                }
+            } catch (e) {
+                window.showMessage("Error eliminando.", "error");
+            }
+        };
+
         window.openFacturaModal = function() {
             if(listaClientesGlobal.length === 0) {
-                window.showMessage("Agregue clientes en la base de datos primero.", "error");
+                window.showMessage("Agregue clientes primero.", "error");
                 return;
             }
             document.getElementById('modal-factura').classList.remove('hidden');
             document.getElementById('factura-fecha').value = new Date().toISOString().split('T')[0];
             document.getElementById('factura-numero').value = '';
-
             const select = document.getElementById('factura-cliente');
-            select.innerHTML = '<option value="">Seleccione un cliente...</option>';
+            select.innerHTML = '<option value="">Seleccione...</option>';
             listaClientesGlobal.forEach(c => {
                 select.innerHTML += `<option value="${c.id}">${c.identificacion} - ${c.nombre}</option>`;
             });
-
             document.getElementById('factura-detalles-tbody').innerHTML = '';
             window.addDetalleRow();
             window.calcularTotalesFactura();
         };
+
         window.closeFacturaModal = function() {
             document.getElementById('modal-factura').classList.add('hidden');
         };
 
-        // 3. CARGAS INICIALES DE BASE DE DATOS
         window.cargarProductosModuloB = async function() {
             try {
                 const res = await fetch(`${API_URL}/productos`);
-                if(res.ok) { productosModuloB = await res.json(); }
-            } catch (e) { console.error(e); }
+                if(res.ok) productosModuloB = await res.json();
+            } catch (e) {}
         };
 
         window.cargarTarifasModuloD = async function() {
@@ -374,10 +389,10 @@
                     const sel = document.getElementById('factura-tarifa-iva');
                     sel.innerHTML = '';
                     tarifasIvaModuloD.forEach(t => {
-                        sel.innerHTML += `<option value="${t.id_tarifa}" data-porcentaje="${t.porcentaje}">${t.descripcion} (${t.porcentaje}%)</option>`;
+                        sel.innerHTML += `<option value="${t.id_tarifa}" data-porcentaje="${t.porcentaje}">${t.descripcion}</option>`;
                     });
                 }
-            } catch (e) { console.error(e); }
+            } catch (e) {}
         };
 
         window.cargarFormasPago = async function() {
@@ -391,7 +406,21 @@
                         select.innerHTML += `<option value="${f.id}">${f.nombre}</option>`;
                     });
                 }
-            } catch (e) { console.error(e); }
+            } catch (e) {}
+        };
+
+        window.cargarVendedores = async function() {
+            try {
+                const res = await fetch(`${API_URL}/vendedores`);
+                if(res.ok) {
+                    const vendedores = await res.json();
+                    const select = document.getElementById('factura-vendedor');
+                    select.innerHTML = '';
+                    vendedores.forEach(v => {
+                        select.innerHTML += `<option value="${v.id}">${v.nombre}</option>`;
+                    });
+                }
+            } catch (e) {}
         };
 
         window.cargarFiltrosYListas = async function() {
@@ -405,10 +434,9 @@
                         filtro.innerHTML += `<option value="${c.id}">${c.identificacion} - ${c.nombre}</option>`;
                     });
                 }
-            } catch (e) { console.error(e); }
+            } catch (e) {}
         };
 
-        // 4. LÓGICA DE CLIENTES
         window.renderClientes = async function() {
             try {
                 const res = await fetch(`${API_URL}/clientes`);
@@ -424,22 +452,26 @@
                         emptyState.classList.add('hidden');
                         clientes.forEach(c => {
                             tbody.innerHTML += `
-                                <tr class="hover:bg-gray-50 transition border-b border-gray-100">
-                                    <td class="p-3 text-gray-500">${c.id}</td>
-                                    <td class="p-3 font-medium">${c.identificacion}</td>
+                                <tr class="hover:bg-gray-50 border-b">
+                                    <td class="p-3">${c.id}</td>
+                                    <td class="p-3">${c.identificacion}</td>
                                     <td class="p-3">${c.nombre}</td>
-                                    <td class="p-3 text-gray-500">${c.email || ''}</td>
-                                    <td class="p-3 text-right text-gray-500">${c.direccion || ''}</td>
+                                    <td class="p-3">${c.email}</td>
+                                    <td class="p-3 text-right">
+                                        <button onclick="window.editarCliente(${c.id})" class="text-blue-500 mr-2">Editar</button>
+                                        <button onclick="window.eliminarCliente(${c.id})" class="text-red-500">Borrar</button>
+                                    </td>
                                 </tr>
                             `;
                         });
                     }
                 }
-            } catch (e) { console.error(e); }
+            } catch (e) {}
         };
 
         window.handleClienteSubmit = async function(e) {
             e.preventDefault();
+            const idEdit = document.getElementById('cliente-id-edit').value;
             const payload = {
                 tipo_cliente_id: parseInt(document.getElementById('cliente-tipo').value),
                 identificacion: document.getElementById('cliente-identificacion').value,
@@ -448,40 +480,26 @@
                 direccion: document.getElementById('cliente-direccion').value
             };
             try {
-                const res = await fetch(`${API_URL}/clientes`, {
-                    method: 'POST',
+                const url = idEdit ? `${API_URL}/clientes/${idEdit}` : `${API_URL}/clientes`;
+                const method = idEdit ? 'PUT' : 'POST';
+                const res = await fetch(url, {
+                    method: method,
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(payload)
                 });
                 if(res.ok) {
-                    window.showMessage("Cliente guardado en MySQL con éxito.");
+                    window.showMessage("Guardado exitoso.");
                     window.closeClienteModal();
                     await window.cargarFiltrosYListas();
                     window.renderClientes();
                 } else {
-                    const err = await res.json();
-                    window.showMessage("Error: " + err.detail, "error");
+                    window.showMessage("Error en registro", "error");
                 }
             } catch (error) {
-                window.showMessage("No se pudo conectar con el servidor.", "error");
+                window.showMessage("Error conectando.", "error");
             }
         };
 
-        async function cargarVendedores() {
-            try {
-                const res = await fetch(`${API_URL}/vendedores`);
-                if(res.ok) {
-                    const vendedores = await res.json();
-                    const select = document.getElementById('factura-vendedor');
-                    select.innerHTML = '<option value="">Seleccione vendedor...</option>';
-                    vendedores.forEach(v => {
-                        select.innerHTML += `<option value="${v.id}">${v.nombre}</option>`;
-                    });
-                }
-            } catch (e) { console.error("Error cargando vendedores:", e); }
-        }
-
-        // 5. LÓGICA DE FACTURAS Y LÍNEAS
         window.renderFacturas = async function() {
             try {
                 const res = await fetch(`${API_URL}/facturas`);
@@ -498,55 +516,50 @@
                     } else {
                         emptyState.classList.add('hidden');
                         filtradas.forEach(f => {
-                            const estadoClass = f.estado === 'PAGADA' ? 'bg-green-100 text-green-800' : (f.estado === 'VENCIDA' ? 'bg-red-100 text-red-800' : 'bg-yellow-100 text-yellow-800');
                             tbody.innerHTML += `
-                                <tr class="hover:bg-gray-50 transition border-b border-gray-100">
-                                    <td class="p-3 font-medium text-blue-600">${f.numero_factura}</td>
+                                <tr class="border-b">
+                                    <td class="p-3 text-blue-600">${f.numero_factura}</td>
                                     <td class="p-3">${f.fecha}</td>
                                     <td class="p-3">${f.cliente_nombre}</td>
-                                    <td class="p-3 text-right font-medium">$${parseFloat(f.total).toFixed(2)}</td>
-                                    <td class="p-3 text-center">
-                                        <span class="px-2 py-1 text-xs rounded-full font-medium ${estadoClass}">${f.estado}</span>
-                                    </td>
+                                    <td class="p-3 text-right">$${parseFloat(f.total).toFixed(2)}</td>
+                                    <td class="p-3 text-center">${f.estado}</td>
                                 </tr>
                             `;
                         });
                     }
                 }
-            } catch (e) { console.error(e); }
+            } catch (e) {}
         };
 
         window.addDetalleRow = function() {
             const tbody = document.getElementById('factura-detalles-tbody');
             const rowId = Date.now();
-            let options = '<option value="">Seleccionar Producto...</option>';
+            let options = '<option value="">Seleccionar...</option>';
             productosModuloB.forEach(p => {
                 options += `<option value="${p.id}" data-precio="${p.precio_venta}" data-stock="${p.stock}">${p.nombre}</option>`;
             });
             const tr = document.createElement('tr');
             tr.id = `row-${rowId}`;
-            tr.className = "border-b border-gray-100";
+            tr.className = "border-b";
             tr.innerHTML = `
                 <td class="p-2">
-                    <select class="w-full p-1.5 border border-gray-300 rounded text-sm row-producto" onchange="window.seleccionarProducto(${rowId})">
+                    <select class="w-full p-1 border rounded row-producto" onchange="window.seleccionarProducto(${rowId})">
                         ${options}
                     </select>
                 </td>
-                <td class="p-2 text-center text-sm font-medium text-gray-500 row-stock">-</td>
+                <td class="p-2 text-center row-stock">-</td>
                 <td class="p-2">
-                    <input type="number" class="w-full p-1.5 border border-gray-300 rounded text-center text-sm row-cant" min="1" value="1" onchange="window.calcularLinea(${rowId})">
+                    <input type="number" class="w-full p-1 border rounded text-center row-cant" min="1" value="1" onchange="window.calcularLinea(${rowId})">
                 </td>
-                <td class="p-2 relative">
-                    <span class="absolute left-3 top-3 text-gray-500 text-xs">$</span>
-                    <input type="number" class="w-full pl-6 p-1.5 border border-gray-300 rounded text-right text-sm row-precio bg-gray-100 text-gray-600" readonly value="0.00">
+                <td class="p-2">
+                    <input type="number" class="w-full p-1 border rounded text-right row-precio" readonly value="0.00">
                 </td>
-                <td class="p-2 text-right font-medium text-gray-700 row-subtotal">$0.00</td>
+                <td class="p-2 text-right row-subtotal">$0.00</td>
                 <td class="p-2 text-center">
-                    <button type="button" onclick="window.removeDetalleRow(${rowId})" class="text-red-500 hover:text-red-700"><i data-lucide="trash" class="w-4 h-4"></i></button>
+                    <button type="button" onclick="window.removeDetalleRow(${rowId})" class="text-red-500">X</button>
                 </td>
             `;
             tbody.appendChild(tr);
-            lucide.createIcons();
         };
 
         window.removeDetalleRow = function(rowId) {
@@ -578,12 +591,6 @@
             const row = document.getElementById(`row-${rowId}`);
             let cant = parseInt(row.querySelector('.row-cant').value) || 0;
             const precio = parseFloat(row.querySelector('.row-precio').value) || 0;
-            const maxStock = parseInt(row.querySelector('.row-cant').max);
-            if (maxStock && cant > maxStock) {
-                alert(`Módulo B: Stock insuficiente. Máximo disponible es ${maxStock}`);
-                cant = maxStock;
-                row.querySelector('.row-cant').value = cant;
-            }
             const subtotal = cant * precio;
             row.querySelector('.row-subtotal').innerText = `$${subtotal.toFixed(2)}`;
             window.calcularTotalesFactura();
@@ -600,7 +607,6 @@
             let porcentajeIva = 0;
             if(selIva && selIva.options.length > 0) {
                 porcentajeIva = parseFloat(selIva.options[selIva.selectedIndex].dataset.porcentaje) / 100;
-                document.getElementById('label-iva-calculado').innerText = `IVA (${porcentajeIva * 100}%):`;
             }
             const montoIva = subtotal * porcentajeIva;
             const total = subtotal + montoIva;
@@ -613,60 +619,31 @@
             const clienteId = document.getElementById('factura-cliente').value;
             const numFactura = document.getElementById('factura-numero').value;
             const idTarifaIva = document.getElementById('factura-tarifa-iva').value;
+            if(!clienteId || !numFactura) return;
             
-            if(!clienteId || !numFactura) { 
-                window.showMessage("Complete cliente y número de factura.", "error"); return; 
-            }
             const detalles = [];
-            let errorDetalle = false;
             document.querySelectorAll('#factura-detalles-tbody tr').forEach(row => {
                 const prodId = row.querySelector('.row-producto').value;
                 const cant = parseInt(row.querySelector('.row-cant').value);
                 const precio = parseFloat(row.querySelector('.row-precio').value);
-                if(!prodId || cant <= 0) { errorDetalle = true; }
-                else {
-                    detalles.push({
-                        product_id: parseInt(prodId),
-                        id_tarifa: parseInt(idTarifaIva),
-                        cantidad: cant,
-                        precio_unitario: precio,
-                        descuento: 0.0
-                    });
+                if(prodId && cant > 0) {
+                    detalles.push({ product_id: parseInt(prodId), id_tarifa: parseInt(idTarifaIva), cantidad: cant, precio_unitario: precio, descuento: 0.0 });
                 }
             });
-            if(errorDetalle || detalles.length === 0) {
-                window.showMessage("Complete correctamente los productos a facturar.", "error"); return;
-            }
-
-            const payload = {
-                numero_factura: numFactura,
-                cliente_id: parseInt(clienteId),
-                vendedor_id: parseInt(document.getElementById('factura-vendedor').value),
-                detalles: detalles
-            };
-
+            
+            const payload = { numero_factura: numFactura, cliente_id: parseInt(clienteId), vendedor_id: parseInt(document.getElementById('factura-vendedor').value), detalles: detalles };
             try {
-                const res = await fetch(`${API_URL}/facturas`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
-                });
+                const res = await fetch(`${API_URL}/facturas`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
                 if(res.ok) {
-                    window.showMessage("Factura generada y Stock actualizado (Módulo B).");
+                    window.showMessage("Factura lista.");
                     window.closeFacturaModal();
                     await window.cargarProductosModuloB();
                     window.renderFacturas();
                     window.renderFacturasPendientes();
-                } else {
-                    const err = await res.json();
-                    window.showMessage("Error BD: " + err.detail, "error");
                 }
-            } catch (error) {
-                window.showMessage("Error conectando con la API.", "error");
-            }
+            } catch (error) {}
         };
 
-        // 6. LÓGICA DE PAGOS Y CxC
         window.renderFacturasPendientes = async function() {
             try {
                 const res = await fetch(`${API_URL}/facturas/pendientes`);
@@ -682,22 +659,20 @@
                         emptyState.classList.add('hidden');
                         pendientes.forEach(f => {
                             container.innerHTML += `
-                                <div class="bg-white border border-gray-200 rounded-lg p-3 flex justify-between items-center hover:border-blue-300 transition cursor-pointer" onclick="window.seleccionarFacturaParaPago(${f.id}, '${f.numero_factura}', ${f.saldo})">
+                                <div class="bg-white border p-3 flex justify-between items-center cursor-pointer" onclick="window.seleccionarFacturaParaPago(${f.id}, '${f.numero_factura}', ${f.saldo})">
                                     <div>
-                                        <div class="font-medium text-blue-600">${f.numero_factura}</div>
-                                        <div class="text-sm text-gray-600">${f.cliente_nombre}</div>
-                                        <div class="text-xs text-gray-400">Total original: $${parseFloat(f.total).toFixed(2)}</div>
+                                        <div class="text-blue-600">${f.numero_factura}</div>
+                                        <div class="text-sm">${f.cliente_nombre}</div>
                                     </div>
                                     <div class="text-right">
-                                        <div class="text-sm text-gray-500 mb-1">Saldo CxC</div>
-                                        <div class="font-bold text-red-600">$${parseFloat(f.saldo).toFixed(2)}</div>
+                                        <div class="text-red-600 font-bold">$${parseFloat(f.saldo).toFixed(2)}</div>
                                     </div>
                                 </div>
                             `;
                         });
                     }
                 }
-            } catch (e) { console.error(e); }
+            } catch (e) {}
         };
 
         window.seleccionarFacturaParaPago = function(id, numero, saldo) {
@@ -722,52 +697,37 @@
 
         window.handlePagoSubmit = async function(e) {
             e.preventDefault();
-            const payload = {
-                factura_id: parseInt(document.getElementById('pago-factura-id').value),
-                monto: parseFloat(document.getElementById('pago-monto').value),
-                forma_pago_id: parseInt(document.getElementById('pago-metodo').value)
-            };
+            const payload = { factura_id: parseInt(document.getElementById('pago-factura-id').value), monto: parseFloat(document.getElementById('pago-monto').value), forma_pago_id: parseInt(document.getElementById('pago-metodo').value) };
             try {
-                const res = await fetch(`${API_URL}/pagos`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
-                });
+                const res = await fetch(`${API_URL}/pagos`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
                 if(res.ok) {
-                    const data = await res.json();
-                    window.showMessage(`Pago exitoso. Saldo restante: $${data.saldo_restante.toFixed(2)}`);
+                    window.showMessage("Pago registrado.");
                     window.resetPagoForm();
                     window.renderFacturasPendientes();
                     window.renderFacturas();
-                } else {
-                    const err = await res.json();
-                    window.showMessage("Error al pagar: " + err.detail, "error");
                 }
-            } catch(e) { window.showMessage("No se pudo registrar el pago.", "error"); }
+            } catch(e) {}
         };
 
         window.ejecutarVerificacionVencimientos = async function() {
             try {
                 const res = await fetch(`${API_URL}/vencimientos/ejecutar`);
-                if(res.ok) {
-                    const data = await res.json();
-                    window.showMessage(data.message, "success");
-                    window.renderFacturasPendientes();
-                }
-            } catch(e) { window.showMessage("Error ejecutando verificador Observer", "error"); }
+                if(res.ok) window.renderFacturasPendientes();
+            } catch(e) {}
         };
 
-        // 7. INICIALIZACIÓN
         window.onload = async () => {
             await Promise.all([
                 window.cargarProductosModuloB(),
                 window.cargarTarifasModuloD(),
                 window.cargarFormasPago(),
                 window.cargarFiltrosYListas(),
-                cargarVendedores()
+                window.cargarVendedores()
             ]);
             window.renderClientes();
-            lucide.createIcons();
+            if (typeof lucide !== 'undefined') {
+                lucide.createIcons();
+            }
         };
     </script>
 </body>
