@@ -65,7 +65,7 @@ class DatabaseConnection:
             host="localhost",
             user="root",
             password="",
-            database="sige"
+            database="modulo_a"
         )
 
 class ComprobanteFactory:
